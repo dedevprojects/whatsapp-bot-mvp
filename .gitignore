@@ -1,0 +1,17 @@
+# Dependencies
+node_modules/
+
+# Environment — never commit real credentials
+.env
+
+# WhatsApp session files (auth state, credentials)
+# These are machine-specific and must never be committed to a public repo
+sessions/
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor
+.vscode/
+.idea/
