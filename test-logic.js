@@ -1,7 +1,9 @@
 const { handleMessage } = require('./bot/messageHandler');
+require('dotenv').config();
 
 const mockBusiness = {
     business_name: 'Test Business',
+    description: 'A test business for the WhatsApp bot.',
     welcome_message: 'Hi there!',
     menu_options: {
         "1": "Option One",
@@ -17,15 +19,30 @@ const tests = [
     { input: 'hola', expected: 'Hi there!' },
     { input: '1', expected: 'You chose one.' },
     { input: 'menu', expected: 'Hi there!' },
-    { input: 'something else', expected: 'Por favor elegí una opción del menú.' }
+    { input: '¿qué hora es?', expected: '' } // This should trigger Gemini
 ];
 
-tests.forEach(({ input, expected }) => {
-    const replies = handleMessage('sender-jid', input, mockBusiness);
-    const success = replies[0].includes(expected);
-    console.log(`Test [${input}]: ${success ? '✅ PASS' : '❌ FAIL'}`);
-    if (!success) {
-        console.log(`  Expected to contain: "${expected}"`);
-        console.log(`  Actual: "${replies[0]}"`);
+async function runTests() {
+    for (const { input, expected } of tests) {
+        const replies = await handleMessage('sender-jid', input, mockBusiness);
+        
+        if (replies.length === 0) {
+            console.log(`Test [${input}]: ❌ NO REPLY`);
+            continue;
+        }
+
+        const actual = replies[0];
+        const success = expected === '' ? actual.length > 0 : actual.includes(expected);
+        
+        console.log(`Test [${input}]: ${success ? '✅ PASS' : '❌ FAIL'}`);
+        if (expected === '') {
+            console.log(`  AI Response: "${actual}"`);
+        }
+        if (!success) {
+            console.log(`  Expected to contain: "${expected}"`);
+            console.log(`  Actual: "${actual}"`);
+        }
     }
-});
+}
+
+runTests().catch(console.error);

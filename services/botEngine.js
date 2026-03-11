@@ -84,28 +84,26 @@ function invalidateCache(whatsappNumber) {
  * @param {string} params.recipientJid   - The bot's own JID (identifies which business to use)
  * @param {string} params.text           - Plain text content of the message
  * @param {Function} params.sendReply    - Async function(jid, text) provided by whatsappService
+ * @param {boolean} params.fromMe        - True if the message was sent FROM the bot itself
  */
-async function processMessage({ senderJid, recipientJid, text, sendReply }) {
-    // Convert Baileys JID (e.g. "5491112345678@s.whatsapp.net") to E.164
-    const rawNumber = recipientJid.split('@')[0];
+async function processMessage({ senderJid, recipientJid, text, sendReply, fromMe = false }) {
+    // Convert Baileys JID (e.g. "5491112345678:1@s.whatsapp.net") to E.164
+    const rawNumber = recipientJid.split(':')[0].split('@')[0];
     const whatsappNumber = `+${rawNumber}`;
-
-    logger.info(
-        { senderJid, whatsappNumber, text: text.slice(0, 80) },
-        'Processing incoming message'
-    );
 
     const business = await getBusinessConfig(whatsappNumber);
     if (!business) {
-        // No config for this number — silently ignore or send a generic reply
         logger.warn({ whatsappNumber }, 'Ignoring message — business not configured');
         return;
     }
 
     // Log inbound message (fire and forget)
-    logMessage(business.id, senderJid, text, 'inbound');
+    // Only log if it's NOT from the bot itself to avoid cluttering in-box with your own sent msgs
+    if (!fromMe) {
+        logMessage(business.id, senderJid, text, 'inbound');
+    }
 
-    const replies = handleMessage(senderJid, text, business);
+    const replies = await handleMessage(senderJid, text, business, fromMe);
 
     for (const reply of replies) {
         await sendReply(senderJid, reply);

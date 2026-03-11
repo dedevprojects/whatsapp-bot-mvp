@@ -113,9 +113,6 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
 
         for (const msg of messages) {
             try {
-                // Skip messages sent by the bot itself
-                if (msg.key.fromMe) continue;
-
                 // Skip broadcast / group messages
                 const remoteJid = msg.key.remoteJid || '';
                 if (isJidBroadcast(remoteJid) || isJidGroup(remoteJid)) continue;
@@ -128,7 +125,7 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                     msg.message?.listResponseMessage?.title ||
                     '';
 
-                if (!text) continue;
+                if (!text && !msg.key.fromMe) continue;
 
                 // The bot's own JID tells us which number received the message
                 const recipientJid = sock.user?.id || '';
@@ -136,8 +133,9 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                 await processMessage({
                     senderJid: remoteJid,
                     recipientJid,
-                    text,
+                    text: text || '',
                     sendReply: (jid, replyText) => sendMessage(sock, jid, replyText),
+                    fromMe: !!msg.key.fromMe
                 });
             } catch (err) {
                 logger.error({ err, msgId: msg.key.id }, 'Error processing message');

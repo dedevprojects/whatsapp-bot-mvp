@@ -1,18 +1,19 @@
 # Estado del Proyecto: WhatsApp Bot Universal 🤖
 
 ## 📍 ¿Dónde nos quedamos?
-El motor del bot está **100% operativo** y conectado a la cuenta de Diego (+5491149407818).
+El bot ya tiene **"Cerebro de IA"** integrado y es capaz de reconocer cuándo debe intervenir un humano. Es una base sólida para empezar a comercializarlo como servicio.
 
 ## ✅ Lo que ya funciona:
-1.  **Conexión Real**: El bot ya se vincula a WhatsApp y sobrevive a reinicios (sesión guardada en `/sessions`).
-2.  **Dashboard Visual**: Panel de control en `http://localhost:3000/dashboard` para ver estados y escanear QR.
-3.  **Base de Datos**: Conectado a Supabase. Se registran todos los mensajes entrantes y salientes en la tabla `messages`.
-4.  **Auto-Reply Silencioso**: Configuramos un mensaje de espera: *"Hola. Aguardame por favor un momento..."*. Luego del saludo, el bot se queda en silencio para que el humano pueda hablar.
+1.  **Cerebro Gemini (IA)**: Integración con Google Gemini (Gratis). El bot responde preguntas abiertas usando el contexto de la empresa (Nombre, descripción, etc.).
+2.  **Pausa Automática (Modo Humano)**: Si escribes un mensaje manual desde el celular, el bot se silencia para ese cliente por 2 horas para no interrumpir tu charla.
+3.  **Identificación Robusta**: Se corrigieron errores de vinculación y ahora reconoce mensajes incluso en cuentas multi-dispositivo.
+4.  **Base de Datos & Logs**: Todos los registros de IA y menús funcionan correctamente vinculados a Supabase.
+5.  **Multi-Empresa**: El sistema ya está preparado para manejar múltiples números y empresas en simultáneo.
 
-## 🚀 Próximo paso: "Cerebro de IA"
-*   **Tarea**: Integrar la API de **Google Gemini** (Gratuita).
-*   **Objetivo**: Que el bot deje de ser un contestador fijo y pueda mantener conversaciones fluidas, responder preguntas frecuentes y entender el contexto sin usar menús de números.
-*   **Requisito**: Diego traerá la API Key de Google AI Studio.
+## 🚀 Próximo paso: "Escalabilidad y Seguridad"
+*   **Tarea 1**: Asegurar el Dashboard con una pantalla de Login.
+*   **Tarea 2**: Crear un panel de "Alta de Clientes" para agregar nuevas empresas sin tocar código.
+*   **Tarea 3**: Despliegue en la nube (Railway o similar) para que funcione 24/7.
 
 ---
-*Última actualización: 10 de Marzo de 2026*
+*Última actualización: 11 de Marzo de 2026 (Sesión IA & Human Intervene)*

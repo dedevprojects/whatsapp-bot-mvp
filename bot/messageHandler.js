@@ -12,10 +12,14 @@
  */
 
 const { buildMenu } = require('./menuBuilder');
+const { getChatResponse } = require('../services/gemini');
 const logger = require('../utils/logger');
 
-// In-memory session store: jid -> { welcomed: boolean }
+// In-memory session store: jid -> { welcomed: boolean, lastHumanInteraction: number }
 const sessions = new Map();
+
+// Silence period after human interaction (2 hours)
+const HUMAN_SILENCE_MS = 2 * 60 * 60 * 1000;
 
 const UNKNOWN_RESPONSE = 'Por favor elegí una opción del menú. 📋';
 
@@ -25,12 +29,28 @@ const UNKNOWN_RESPONSE = 'Por favor elegí una opción del menú. 📋';
  * @param {string} senderJid  - WhatsApp JID of the sender
  * @param {string} text       - Normalized message text
  * @param {object} business   - Row from the `businesses` table
- * @returns {string[]}        - Array of messages to send in sequence
+ * @returns {Promise<string[]>}        - Array of messages to send in sequence
  */
-function handleMessage(senderJid, text, business) {
-    const normalizedText = (text || '').trim().toLowerCase();
+async function handleMessage(senderJid, text, business, fromMe = false) {
+    const session = sessions.get(senderJid) || { welcomed: false, lastHumanInteraction: 0 };
 
-    const session = sessions.get(senderJid) || { welcomed: false };
+    // ─── Human Intervention Detection ─────────────────────────────────────────
+    // If the message is sent FROM the bot (fromMe), it means a human is talking.
+    // We update the session to silent the bot for this user.
+    if (fromMe) {
+        logger.debug({ senderJid }, 'Human interaction detected, silting bot for this user');
+        sessions.set(senderJid, { ...session, lastHumanInteraction: Date.now() });
+        return [];
+    }
+
+    // Check if we are in the "Silence Period" (human took over)
+    const isSilenced = (Date.now() - session.lastHumanInteraction) < HUMAN_SILENCE_MS;
+    if (isSilenced) {
+        logger.debug({ senderJid }, 'Bot is silenced because of recent human interaction');
+        return [];
+    }
+
+    const normalizedText = (text || '').trim().toLowerCase();
 
     // ─── First contact or greeting keywords ───────────────────────────────────
     const isGreeting =
@@ -56,10 +76,16 @@ function handleMessage(senderJid, text, business) {
         return [business.responses[normalizedText]];
     }
 
-    // ─── Silent Fallback ──────────────────────────────────────────────────────
-    // After the initial greeting, if nothing matches, the bot stays silent
-    // so the human can take over the conversation without interference.
-    logger.debug({ senderJid, text: normalizedText }, 'No match — staying silent');
+    // ─── Gemini AI Fallback ──────────────────────────────────────────────────
+    // If nothing matches, we use Gemini to provide an intelligent response
+    logger.debug({ senderJid, text: normalizedText }, 'No match — calling Gemini');
+    
+    const aiResponse = await getChatResponse(text, business);
+    
+    if (aiResponse) {
+        return [aiResponse];
+    }
+
     return [];
 }
 
