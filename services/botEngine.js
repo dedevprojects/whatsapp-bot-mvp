@@ -11,6 +11,24 @@ const supabase = require('../config/supabase');
 const { handleMessage } = require('../bot/messageHandler');
 const logger = require('../utils/logger');
 
+/**
+ * Logs a message to Supabase.
+ */
+async function logMessage(businessId, senderJid, text, direction) {
+    const { error } = await supabase
+        .from('messages')
+        .insert([{
+            business_id: businessId,
+            sender_jid: senderJid,
+            message_text: text,
+            direction
+        }]);
+
+    if (error) {
+        logger.error({ error, businessId, senderJid }, 'Failed to log message to Supabase');
+    }
+}
+
 // Simple LRU-like in-process cache to avoid hammering Supabase on every message.
 // Key: normalized whatsapp_number | Value: { data: business, fetchedAt: Date }
 const businessCache = new Map();
@@ -84,11 +102,17 @@ async function processMessage({ senderJid, recipientJid, text, sendReply }) {
         return;
     }
 
+    // Log inbound message (fire and forget)
+    logMessage(business.id, senderJid, text, 'inbound');
+
     const replies = handleMessage(senderJid, text, business);
 
     for (const reply of replies) {
         await sendReply(senderJid, reply);
         logger.info({ senderJid, business: business.business_name }, 'Reply sent');
+        
+        // Log outbound message (fire and forget)
+        logMessage(business.id, senderJid, reply, 'outbound');
     }
 }
 

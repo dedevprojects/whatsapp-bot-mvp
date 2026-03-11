@@ -30,15 +30,17 @@ whatsapp-bot-mvp/
 │   └── supabase.js            # Supabase client singleton
 │
 ├── services/
-│   ├── whatsappService.js     # Baileys socket per business
-│   └── botEngine.js           # Orchestrator (DB lookup + response routing)
+│   ├── whatsappService.js     # Baileys socket per business + QR manager
+│   ├── botEngine.js           # Orchestrator (DB lookup + message logging)
 │
 ├── bot/
 │   ├── menuBuilder.js         # Dynamic numbered menu formatter
 │   └── messageHandler.js      # Stateful conversation logic
 │
-└── utils/
-    └── logger.js              # Pino structured logger
+├── utils/
+│   └── logger.js              # Pino structured logger
+│
+└── test-logic.js              # Unit tests for bot behavior
 ```
 
 ---
@@ -137,11 +139,11 @@ When the server starts, it prints a **QR code in the terminal for each business*
 
 ## API endpoints
 
-| Method | Path                  | Description                              |
-|--------|-----------------------|------------------------------------------|
-| GET    | `/`                   | Health check                             |
-| GET    | `/status`             | Connection status for all businesses     |
-| POST   | `/webhook/reload`     | Invalidate config cache for a number     |
+| GET    | `/`                      | Health check                             |
+| GET    | `/status`                | Connection status for all businesses     |
+| GET    | `/dashboard`             | **Visual dashboard** (Scan QRs here!)    |
+| GET    | `/qr/:number`            | Serves current QR code as PNG image      |
+| POST   | `/webhook/reload`        | Invalidate config cache for a number     |
 
 **Cache reload example:**
 
@@ -157,11 +159,10 @@ Useful after editing a business's configuration in Supabase — the next message
 
 ## Bot behavior
 
-| Scenario | Bot sends |
-|----------|-----------| 
 | First message or greeting keyword | `welcome_message` + numbered menu |
 | User sends `1`, `2`, `3`… | Corresponding `responses["1"]` etc. |
 | Anything else | Fallback + menu repeated |
+| **Logging** | All messages saved to Supabase `messages` table |
 
 Recognized greeting keywords: `hola`, `hi`, `hello`, `ola`, `buenas`, `inicio`, `start`, `menu`, `menú`.
 

@@ -17,6 +17,22 @@ create table if not exists businesses (
   updated_at       timestamptz not null default now()
 );
 
+-- ============================================================
+-- Messages log table (Optional but highly recommended)
+-- ============================================================
+
+create table if not exists messages (
+  id               uuid primary key default uuid_generate_v4(),
+  business_id      uuid        references businesses(id),
+  sender_jid       text        not null,
+  message_text     text,
+  direction        text        not null check (direction in ('inbound', 'outbound')),
+  created_at       timestamptz not null default now()
+);
+
+create index if not exists idx_messages_business on messages(business_id);
+create index if not exists idx_messages_sender on messages(sender_jid);
+
 -- Keep updated_at current automatically
 create or replace function set_updated_at()
 returns trigger language plpgsql as $$

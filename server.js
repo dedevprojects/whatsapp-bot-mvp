@@ -15,7 +15,8 @@ require('dotenv').config();
 
 const express = require('express');
 const supabase = require('./config/supabase');
-const { connectBusiness, getStatus } = require('./services/whatsappService');
+const { connectBusiness, getStatus, getQRCode } = require('./services/whatsappService');
+const QRCode = require('qrcode');
 const { invalidateCache } = require('./services/botEngine');
 const logger = require('./utils/logger');
 
@@ -32,6 +33,78 @@ app.get('/', (_req, res) => {
 // ─── WhatsApp connection status ──────────────────────────────────────────────
 app.get('/status', (_req, res) => {
     res.json({ connections: getStatus() });
+});
+
+/**
+ * GET /qr/:whatsapp_number
+ * Returns the current QR code as a PNG image.
+ */
+app.get('/qr/:number', async (req, res) => {
+    const { number } = req.params;
+    const qrString = getQRCode(number);
+
+    if (!qrString) {
+        return res.status(404).send('QR not found or already connected.');
+    }
+
+    try {
+        const qrImage = await QRCode.toBuffer(qrString);
+        res.type('image/png');
+        res.send(qrImage);
+    } catch (err) {
+        logger.error({ err, number }, 'Failed to generate QR image');
+        res.status(500).send('Error generating QR code');
+    }
+});
+
+/**
+ * Dashboard (Simple HTML list)
+ */
+app.get('/dashboard', (_req, res) => {
+    const statuses = getStatus();
+    const rows = Object.entries(statuses)
+        .map(([number, data]) => {
+            const statusColor = data.connected ? 'green' : 'orange';
+            const statusText = data.connected ? 'Connected' : 'Waiting for QR';
+            const qrLink = data.connected 
+                ? '✅' 
+                : `<a href="/qr/${encodeURIComponent(number)}" target="_blank">Scan QR</a>`;
+            
+            return `
+            <tr>
+                <td>${number}</td>
+                <td style="color: ${statusColor}">${statusText}</td>
+                <td>${qrLink}</td>
+            </tr>`;
+        })
+        .join('');
+
+    res.send(`
+        <html>
+            <head>
+                <title>WhatsApp Bot Dashboard</title>
+                <style>
+                    body { font-family: sans-serif; padding: 2rem; background: #f8f9fa; }
+                    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
+                    th, td { padding: 1rem; border-bottom: 1px solid #eee; text-align: left; }
+                    th { background: #008069; color: white; }
+                    .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
+                    h1 { color: #1c1e21; margin: 0; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <h1>WhatsApp Bot Dashboard</h1>
+                    <button onclick="location.reload()">Refresh</button>
+                </div>
+                <table>
+                    <tr><th>WhatsApp Number</th><th>Status</th><th>Action</th></tr>
+                    ${rows || '<tr><td colspan="3">No businesses found.</td></tr>'}
+                </table>
+                <p><small>Tip: Add new businesses in Supabase then call <code>POST /webhook/reload</code> or restart.</small></p>
+            </body>
+        </html>
+    `);
 });
 
 /**
@@ -89,6 +162,7 @@ async function main() {
     // Start HTTP server first so Railway's health checks pass immediately
     app.listen(PORT, () => {
         logger.info({ port: PORT }, '🚀 HTTP server started');
+        logger.info(`🌐 Dashboard: http://localhost:${PORT}/dashboard`);
     });
 
     try {

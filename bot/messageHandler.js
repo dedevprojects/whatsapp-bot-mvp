@@ -56,10 +56,11 @@ function handleMessage(senderJid, text, business) {
         return [business.responses[normalizedText]];
     }
 
-    // ─── Fallback ──────────────────────────────────────────────────────────────
-    logger.debug({ senderJid, text: normalizedText }, 'No match — sending fallback');
-    const menuText = buildMenu(business.menu_options);
-    return [`${UNKNOWN_RESPONSE}\n\n${menuText}`];
+    // ─── Silent Fallback ──────────────────────────────────────────────────────
+    // After the initial greeting, if nothing matches, the bot stays silent
+    // so the human can take over the conversation without interference.
+    logger.debug({ senderJid, text: normalizedText }, 'No match — staying silent');
+    return [];
 }
 
 /**

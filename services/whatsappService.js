@@ -28,6 +28,9 @@ const logger = require('../utils/logger');
 // Map<whatsapp_number, WASocket>
 const connections = new Map();
 
+// Map<whatsapp_number, string> - Stores the latest QR code string for unauthenticated sessions
+const qrCodes = new Map();
+
 const SESSIONS_DIR = path.resolve(process.cwd(), 'sessions');
 
 /** Ensure the sessions root directory exists */
@@ -73,12 +76,14 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
         const { connection, lastDisconnect, qr } = update;
 
         if (qr) {
+            qrCodes.set(whatsappNumber, qr);
             logger.info({ businessName, whatsappNumber }, 'QR code ready — scan to connect');
             console.log(`\n📲  Scan QR for [${businessName}] (${whatsappNumber}):\n`);
             qrcode.generate(qr, { small: true });
         }
 
         if (connection === 'open') {
+            qrCodes.delete(whatsappNumber);
             logger.info({ businessName, whatsappNumber }, '✅ WhatsApp connected successfully');
         }
 
@@ -180,4 +185,13 @@ function getStatus() {
     return status;
 }
 
-module.exports = { connectBusiness, disconnectBusiness, getStatus };
+/**
+ * Gets the current QR code for a given number.
+ * @param {string} whatsappNumber
+ * @returns {string|null}
+ */
+function getQRCode(whatsappNumber) {
+    return qrCodes.get(whatsappNumber) || null;
+}
+
+module.exports = { connectBusiness, disconnectBusiness, getStatus, getQRCode };
