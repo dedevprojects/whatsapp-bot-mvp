@@ -31,7 +31,7 @@ const UNKNOWN_RESPONSE = 'Por favor elegí una opción del menú. 📋';
  * @param {object} business   - Row from the `businesses` table
  * @returns {Promise<string[]>}        - Array of messages to send in sequence
  */
-async function handleMessage(senderJid, text, business, fromMe = false) {
+async function handleMessage(senderJid, text, business, fromMe = false, history = []) {
     const session = sessions.get(senderJid) || { welcomed: false, lastHumanInteraction: 0 };
 
     // ─── Human Intervention Detection ─────────────────────────────────────────
@@ -80,7 +80,8 @@ async function handleMessage(senderJid, text, business, fromMe = false) {
     // If nothing matches, we use Gemini to provide an intelligent response
     logger.debug({ senderJid, text: normalizedText }, 'No match — calling Gemini');
     
-    const aiResponse = await getChatResponse(text, business);
+    // Pass history to AI for contextual responses
+    const aiResponse = await getChatResponse(text, business, history);
     
     if (aiResponse) {
         return [aiResponse];

@@ -29,6 +29,30 @@ async function logMessage(businessId, senderJid, text, direction) {
     }
 }
 
+/**
+ * Retrieves the last N messages for a conversation.
+ */
+async function getRecentHistory(businessId, senderJid, limit = 6) {
+    const { data, error } = await supabase
+        .from('messages')
+        .select('message_text, direction')
+        .eq('business_id', businessId)
+        .eq('sender_jid', senderJid)
+        .order('created_at', { ascending: false })
+        .limit(limit);
+
+    if (error) {
+        logger.error({ error, senderJid }, 'Error loading history from Supabase');
+        return [];
+    }
+
+    // Return in chronological order
+    return data.reverse().map(m => ({
+        role: m.direction,
+        text: m.message_text
+    }));
+}
+
 // Simple LRU-like in-process cache to avoid hammering Supabase on every message.
 // Key: normalized whatsapp_number | Value: { data: business, fetchedAt: Date }
 const businessCache = new Map();
@@ -97,13 +121,16 @@ async function processMessage({ senderJid, recipientJid, text, sendReply, fromMe
         return;
     }
 
-    // Log inbound message (fire and forget)
-    // Only log if it's NOT from the bot itself to avoid cluttering in-box with your own sent msgs
+    // 1. Log inbound message (fire and forget)
     if (!fromMe) {
         logMessage(business.id, senderJid, text, 'inbound');
     }
 
-    const replies = await handleMessage(senderJid, text, business, fromMe);
+    // 2. Get recent history to provide context
+    const history = await getRecentHistory(business.id, senderJid);
+
+    // 3. Handle message with context
+    const replies = await handleMessage(senderJid, text, business, fromMe, history);
 
     for (const reply of replies) {
         await sendReply(senderJid, reply);
