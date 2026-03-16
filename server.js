@@ -25,6 +25,29 @@ const app = express();
 
 app.use(express.json());
 
+// ─── Basic Auth Middleware ───────────────────────────────────────────────────
+const authMiddleware = (req, res, next) => {
+    const adminUser = process.env.ADMIN_USER || 'admin';
+    const adminPass = process.env.ADMIN_PASSWORD || 'password123';
+
+    const authHeader = req.headers.authorization;
+    if (!authHeader) {
+        res.set('WWW-Authenticate', 'Basic realm="Admin Dashboard"');
+        return res.status(401).send('Se requiere autenticación.');
+    }
+
+    const auth = Buffer.from(authHeader.split(' ')[1], 'base64').toString().split(':');
+    const user = auth[0];
+    const pass = auth[1];
+
+    if (user === adminUser && pass === adminPass) {
+        return next();
+    } else {
+        res.set('WWW-Authenticate', 'Basic realm="Admin Dashboard"');
+        return res.status(401).send('Credenciales incorrectas.');
+    }
+};
+
 // ─── Health check ────────────────────────────────────────────────────────────
 app.get('/', (_req, res) => {
     res.json({ status: 'ok', service: 'whatsapp-bot-mvp', uptime: process.uptime() });
@@ -33,6 +56,46 @@ app.get('/', (_req, res) => {
 // ─── WhatsApp connection status ──────────────────────────────────────────────
 app.get('/status', (_req, res) => {
     res.json({ connections: getStatus() });
+});
+
+// ─── Protected Routes ────────────────────────────────────────────────────────
+app.use(['/dashboard', '/qr', '/webhook/reload', '/admin'], authMiddleware);
+
+/**
+ * POST /admin/businesses
+ * Adds a new business to Supabase and starts a WhatsApp connection.
+ */
+app.post('/admin/businesses', express.urlencoded({ extended: true }), async (req, res) => {
+    const { business_name, whatsapp_number, description } = req.body;
+
+    if (!business_name || !whatsapp_number) {
+        return res.status(400).send('Nombre y número son obligatorios.');
+    }
+
+    try {
+        const { error } = await supabase
+            .from('businesses')
+            .insert([{
+                business_name,
+                whatsapp_number,
+                description,
+                active: true
+            }]);
+
+        if (error) throw error;
+
+        logger.info({ business_name, whatsapp_number }, 'New business added via Dashboard');
+        
+        // Start connection process immediately
+        connectBusiness(whatsapp_number, business_name).catch(err => 
+            logger.error({ err, whatsapp_number }, 'Failed to connect new business')
+        );
+
+        res.redirect('/dashboard?success=1');
+    } catch (err) {
+        logger.error({ err }, 'Error adding business');
+        res.status(500).send('Error al guardar la empresa: ' + err.message);
+    }
 });
 
 /**
@@ -60,48 +123,87 @@ app.get('/qr/:number', async (req, res) => {
 /**
  * Dashboard (Simple HTML list)
  */
-app.get('/dashboard', (_req, res) => {
-    const statuses = getStatus();
-    const rows = Object.entries(statuses)
-        .map(([number, data]) => {
-            const statusColor = data.connected ? 'green' : 'orange';
-            const statusText = data.connected ? 'Connected' : 'Waiting for QR';
-            const qrLink = data.connected 
-                ? '✅' 
-                : `<a href="/qr/${encodeURIComponent(number)}" target="_blank">Scan QR</a>`;
-            
-            return `
-            <tr>
-                <td>${number}</td>
-                <td style="color: ${statusColor}">${statusText}</td>
-                <td>${qrLink}</td>
-            </tr>`;
-        })
-        .join('');
+app.get('/dashboard', async (_req, res) => {
+    // Fetch names to show in dashboard
+    const { data: businesses } = await supabase
+        .from('businesses')
+        .select('whatsapp_number, business_name');
 
+    const nameMap = (businesses || []).reduce((acc, b) => {
+        acc[b.whatsapp_number] = b.business_name;
+        return acc;
+    }, {});
+
+    const statuses = getStatus();
+    
     res.send(`
         <html>
             <head>
                 <title>WhatsApp Bot Dashboard</title>
                 <style>
-                    body { font-family: sans-serif; padding: 2rem; background: #f8f9fa; }
-                    table { width: 100%; border-collapse: collapse; background: white; border-radius: 8px; overflow: hidden; box-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.1); }
-                    th, td { padding: 1rem; border-bottom: 1px solid #eee; text-align: left; }
+                    body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; padding: 2rem; background: #f0f2f5; color: #1c1e21; }
+                    .container { max-width: 900px; margin: 0 auto; }
+                    .card { background: white; padding: 1.5rem; border-radius: 12px; box-shadow: 0 4px 12px rgba(0,0,0,0.1); margin-bottom: 2rem; }
+                    table { width: 100%; border-collapse: collapse; margin-top: 1rem; }
+                    th, td { padding: 1rem; border-bottom: 1px solid #e4e6eb; text-align: left; }
                     th { background: #008069; color: white; }
                     .header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.5rem; }
-                    h1 { color: #1c1e21; margin: 0; }
+                    h1 { color: #008069; margin: 0; }
+                    h2 { margin-top: 0; color: #1c1e21; border-bottom: 2px solid #008069; padding-bottom: 5px; }
+                    .form-group { margin-bottom: 1rem; }
+                    label { display: block; margin-bottom: 0.5rem; font-weight: bold; }
+                    input, textarea { width: 100%; padding: 0.5rem; border: 1px solid #ccd0d5; border-radius: 6px; box-sizing: border-box; }
+                    button { background: #008069; color: white; border: none; padding: 0.7rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: bold; }
+                    button:hover { background: #006e5a; }
+                    .refresh-btn { background: #606770; }
+                    .success-msg { background: #d4edda; color: #155724; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
                 </style>
             </head>
             <body>
-                <div class="header">
-                    <h1>WhatsApp Bot Dashboard</h1>
-                    <button onclick="location.reload()">Refresh</button>
+                <div class="container">
+                    <div class="header">
+                        <h1>WhatsApp Bot Universal</h1>
+                        <button class="refresh-btn" onclick="location.reload()">Actualizar</button>
+                    </div>
+
+                    ${_req.query.success ? '<div class="success-msg">✅ Empresa agregada y vinculando...</div>' : ''}
+
+                    <div class="card">
+                        <h2>🚀 Empresas Activas</h2>
+                        <table>
+                            <tr><th>Empresa</th><th>Número</th><th>Estado</th><th>Acción</th></tr>
+                            ${Object.entries(statuses).map(([num, data]) => `
+                                <tr>
+                                    <td>${nameMap[num] || 'Desconocida'}</td>
+                                    <td>${num}</td>
+                                    <td style="color: ${data.connected ? '#25d366' : '#ff9800'}">
+                                        ${data.connected ? '● Conectado' : '○ Esperando QR'}
+                                    </td>
+                                    <td>${data.connected ? '✅' : `<a href="/qr/${encodeURIComponent(num)}" target="_blank">Escanear QR</a>`}</td>
+                                </tr>
+                            `).join('') || '<tr><td colspan="4">No hay empresas configuradas.</td></tr>'}
+                        </table>
+                    </div>
+
+                    <div class="card">
+                        <h2>➕ Alta de Nueva Empresa</h2>
+                        <form action="/admin/businesses" method="POST">
+                            <div class="form-group">
+                                <label>Nombre de la Empresa:</label>
+                                <input type="text" name="business_name" placeholder="Ej: Restaurante Roma" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Número de WhatsApp (E.164):</label>
+                                <input type="text" name="whatsapp_number" placeholder="Ej: +5491112345678" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Descripción para IA:</label>
+                                <textarea name="description" placeholder="Describe brevemente de qué trata el negocio..." rows="3"></textarea>
+                            </div>
+                            <button type="submit">Guardar y Vincular</button>
+                        </form>
+                    </div>
                 </div>
-                <table>
-                    <tr><th>WhatsApp Number</th><th>Status</th><th>Action</th></tr>
-                    ${rows || '<tr><td colspan="3">No businesses found.</td></tr>'}
-                </table>
-                <p><small>Tip: Add new businesses in Supabase then call <code>POST /webhook/reload</code> or restart.</small></p>
             </body>
         </html>
     `);

@@ -77,3 +77,21 @@ insert into businesses (
     "4": "Estamos en Av. Siempre Viva 123, Ciudad 📍"
   }'
 ) on conflict (whatsapp_number) do nothing;
+
+-- ============================================================
+-- WhatsApp Sessions table (For persistence on Render/Railway)
+-- ============================================================
+
+create table if not exists whatsapp_sessions (
+  id               uuid primary key default uuid_generate_v4(),
+  whatsapp_number  text not null unique,
+  data             jsonb not null,
+  updated_at       timestamptz not null default now()
+);
+
+create index if not exists idx_sessions_number on whatsapp_sessions(whatsapp_number);
+
+-- Trigger for sessions table
+create trigger trg_whatsapp_sessions_updated_at
+  before update on whatsapp_sessions
+  for each row execute function set_updated_at();

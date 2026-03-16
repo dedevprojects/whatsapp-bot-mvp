@@ -24,6 +24,7 @@ const {
 const qrcode = require('qrcode-terminal');
 const { processMessage } = require('./botEngine');
 const logger = require('../utils/logger');
+const { useSupabaseAuthState } = require('../utils/supabaseAuth');
 
 // Map<whatsapp_number, WASocket>
 const connections = new Map();
@@ -45,13 +46,7 @@ if (!fs.existsSync(SESSIONS_DIR)) {
  * @param {string} [businessName] - Human-readable label for logs
  */
 async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
-    const sessionDir = path.join(SESSIONS_DIR, whatsappNumber.replace(/\+/g, ''));
-
-    if (!fs.existsSync(sessionDir)) {
-        fs.mkdirSync(sessionDir, { recursive: true });
-    }
-
-    const { state, saveCreds } = await useMultiFileAuthState(sessionDir);
+    const { state, saveCreds } = await useSupabaseAuthState(whatsappNumber);
     const { version } = await fetchLatestBaileysVersion();
 
     logger.info({ businessName, whatsappNumber, version }, 'Starting Baileys socket');
