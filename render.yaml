@@ -2,7 +2,7 @@ services:
   - type: web
     name: whatsapp-bot-universal
     env: node
-    plan: starter # Se recomienda plan 'Starter' para evitar que el bot se 'duerma'
+    plan: free # Cambiado a free para evitar pedido de tarjeta
     region: ohio
     buildCommand: npm install
     startCommand: npm start
