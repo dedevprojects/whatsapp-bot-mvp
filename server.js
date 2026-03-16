@@ -62,6 +62,31 @@ app.get('/status', (_req, res) => {
 app.use(['/dashboard', '/qr', '/webhook/reload', '/admin'], authMiddleware);
 
 /**
+ * DELETE /admin/businesses/:id
+ * Removes a business and its references.
+ */
+app.delete('/admin/businesses/:id', async (req, res) => {
+    const { id } = req.params;
+    try {
+        // Find number first to disconnect
+        const { data: biz } = await supabase.from('businesses').select('whatsapp_number').eq('id', id).single();
+        if (biz) {
+            const { disconnectBusiness } = require('./services/whatsappService');
+            await disconnectBusiness(biz.whatsapp_number);
+            // Also clear from sessions table
+            await supabase.from('whatsapp_sessions').delete().eq('whatsapp_number', biz.whatsapp_number);
+        }
+
+        const { error } = await supabase.from('businesses').delete().eq('id', id);
+        if (error) throw error;
+        res.json({ success: true });
+    } catch (err) {
+        logger.error({ err }, 'Error deleting business');
+        res.status(500).json({ error: err.message });
+    }
+});
+
+/**
  * POST /admin/businesses
  * Adds a new business to Supabase and starts a WhatsApp connection.
  */
@@ -124,13 +149,18 @@ app.get('/qr/:number', async (req, res) => {
  * Dashboard (Simple HTML list)
  */
 app.get('/dashboard', async (_req, res) => {
-    // Fetch names to show in dashboard
+    // Fetch businesses from Supabase
     const { data: businesses } = await supabase
         .from('businesses')
-        .select('whatsapp_number, business_name');
+        .select('whatsapp_number, business_name, id');
 
     const nameMap = (businesses || []).reduce((acc, b) => {
         acc[b.whatsapp_number] = b.business_name;
+        return acc;
+    }, {});
+
+    const idMap = (businesses || []).reduce((acc, b) => {
+        acc[b.whatsapp_number] = b.id;
         return acc;
     }, {});
 
@@ -156,8 +186,21 @@ app.get('/dashboard', async (_req, res) => {
                     button { background: #008069; color: white; border: none; padding: 0.7rem 1.2rem; border-radius: 6px; cursor: pointer; font-weight: bold; }
                     button:hover { background: #006e5a; }
                     .refresh-btn { background: #606770; }
+                    .delete-btn { background: #dc3545; padding: 0.4rem 0.8rem; font-size: 0.85rem; }
+                    .delete-btn:hover { background: #a71d2a; }
                     .success-msg { background: #d4edda; color: #155724; padding: 1rem; border-radius: 6px; margin-bottom: 1rem; }
+                    .actions { display: flex; gap: 10px; align-items: center; }
+                    a { color: #008069; text-decoration: none; font-weight: bold; }
+                    a:hover { text-decoration: underline; }
                 </style>
+                <script>
+                    async function deleteBusiness(id) {
+                        if (!confirm('¿Estás seguro de que quieres eliminar esta empresa? Se perderá la conexión y los datos.')) return;
+                        const res = await fetch('/admin/businesses/' + id, { method: 'DELETE' });
+                        if (res.ok) location.reload();
+                        else alert('Error al eliminar');
+                    }
+                </script>
             </head>
             <body>
                 <div class="container">
@@ -166,12 +209,12 @@ app.get('/dashboard', async (_req, res) => {
                         <button class="refresh-btn" onclick="location.reload()">Actualizar</button>
                     </div>
 
-                    ${_req.query.success ? '<div class="success-msg">✅ Empresa agregada y vinculando...</div>' : ''}
+                    ${_req.query.success ? '<div class="success-msg">✅ Empresa agregada exitosamente.</div>' : ''}
 
                     <div class="card">
                         <h2>🚀 Empresas Activas</h2>
                         <table>
-                            <tr><th>Empresa</th><th>Número</th><th>Estado</th><th>Acción</th></tr>
+                            <tr><th>Empresa</th><th>Número</th><th>Estado</th><th>Acciones</th></tr>
                             ${Object.entries(statuses).map(([num, data]) => `
                                 <tr>
                                     <td>${nameMap[num] || 'Desconocida'}</td>
@@ -179,7 +222,10 @@ app.get('/dashboard', async (_req, res) => {
                                     <td style="color: ${data.connected ? '#25d366' : '#ff9800'}">
                                         ${data.connected ? '● Conectado' : '○ Esperando QR'}
                                     </td>
-                                    <td>${data.connected ? '✅' : `<a href="/qr/${encodeURIComponent(num)}" target="_blank">Escanear QR</a>`}</td>
+                                    <td class="actions">
+                                        ${data.connected ? '✅' : `<a href="/qr/${encodeURIComponent(num)}" target="_blank">Escanear QR</a>`}
+                                        <button class="delete-btn" onclick="deleteBusiness('${idMap[num]}')">Eliminar</button>
+                                    </td>
                                 </tr>
                             `).join('') || '<tr><td colspan="4">No hay empresas configuradas.</td></tr>'}
                         </table>
@@ -291,3 +337,18 @@ process.on('unhandledRejection', (reason) => {
 });
 
 main();
+
+// ─── Keep Awake (Self-Ping) ──────────────────────────────────────────────────
+// Pings the root URL every 10 minutes to prevent Render from sleeping the instance.
+const axios = require('axios');
+const SELF_URL = `https://${process.env.RENDER_EXTERNAL_HOSTNAME || 'localhost:' + PORT}`;
+
+setInterval(async () => {
+    try {
+        if (SELF_URL.includes('localhost')) return; // Don't ping on local
+        await axios.get(SELF_URL);
+        logger.debug('Self-ping successful — Staying awake');
+    } catch (err) {
+        logger.error({ err }, 'Self-ping failed');
+    }
+}, 10 * 60 * 1000); // 10 minutes
