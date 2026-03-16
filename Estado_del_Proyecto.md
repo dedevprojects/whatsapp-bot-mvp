@@ -1,20 +1,21 @@
 # Estado del Proyecto: WhatsApp Bot Universal 🤖
 
 ## 📍 ¿Dónde nos quedamos?
-El bot ya tiene **"Cerebro de IA"** integrado y es capaz de reconocer cuándo debe intervenir un humano. Es una base sólida para empezar a comercializarlo como servicio.
+El bot ya es una plataforma **SaaS completa en la nube**. Está desplegado en **Render.com**, tiene gestión de clientes desde el Dashboard y memoria de conversación inteligente.
 
 ## ✅ Lo que ya funciona:
-1.  **Cerebro Gemini (IA)**: Integración con Google Gemini (Gratis). El bot responde preguntas abiertas usando el contexto de la empresa (Nombre, descripción, etc.).
-2.  **Pausa Automática (Modo Humano)**: Si escribes un mensaje manual desde el celular, el bot se silencia para ese cliente por 2 hours para no interrumpir tu charla.
-3.  **Identificación Robusta**: Reconoce mensajes en cuentas multi-dispositivo.
-4.  **Base de Datos & Logs**: Todos los registros de IA y menús funcionan correctamente vinculados a Supabase.
-5.  **Multi-Empresa**: El sistema maneja múltiples números y empresas en simultáneo.
-6.  **Panel Protegido**: El Dashboard requiere usuario y contraseña.
-7.  **Persistencia en la Nube**: Las sesiones de WhatsApp se guardan en Supabase (listo para Render).
+1.  **Despliegue en la Nube (Render)**: El bot ya vive en `onrender.com` de forma gratuita y auto-gestionada.
+2.  **Dashboard Maestro**: Panel protegido para dar de alta y eliminar empresas sin tocar código.
+3.  **Memoria de IA (Contexto)**: Gemini ahora recuerda los últimos 6 mensajes de la charla para respuestas más naturales.
+4.  **Uptime Gratuito**: Sistema de "Self-ping" interno para que el bot no se duerma en Render.
+5.  **Persistencia Robusta**: Sesiones guardadas en Supabase (las conexiones sobreviven a reinicios).
+6.  **Cerebro Gemini (IA)**: Integración con Google Gemini para respuestas inteligentes basadas en la descripción del negocio.
+7.  **Pausa Automática**: El bot se silencia si un humano interviene en la charla.
 
-## 🚀 Próximo paso: "Despliegue Final"
-*   **Tarea 1**: Despliegue en **Render.com** para que funcione 24/7.
-*   **Tarea 2**: Pruebas finales de estrés con múltiples números cargados desde el Dashboard.
+## 🚀 Próximos pasos:
+*   **Tarea 1**: Configurar 3 "Demos" de diferentes rubros (Restaurante, Gym, Estética) para mostrar a clientes.
+*   **Tarea 2**: Crear landing page para vender el servicio.
+*   **Tarea 3**: Validar el primer cliente real y pasar al plan de pago de Render ($7 USD) para máxima estabilidad.
 
 ---
-*Última actualización: 11 de Marzo de 2026 (Sesión IA & Human Intervene)*
+*Última actualización: 16 de Marzo de 2026 (Sesión de Despliegue & SaaS Completo)*
