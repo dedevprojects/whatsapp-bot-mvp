@@ -67,21 +67,42 @@ app.use(['/dashboard', '/qr', '/webhook/reload', '/admin'], authMiddleware);
  */
 app.delete('/admin/businesses/:id', async (req, res) => {
     const { id } = req.params;
+    logger.info({ id }, 'Deleting business request');
     try {
-        // Find number first to disconnect
-        const { data: biz } = await supabase.from('businesses').select('whatsapp_number').eq('id', id).single();
+        // Find business details before deleting
+        const { data: biz, error: findError } = await supabase
+            .from('businesses')
+            .select('whatsapp_number')
+            .eq('id', id)
+            .single();
+
+        if (findError) throw new Error('Business not found in database');
+
         if (biz) {
+            const { whatsapp_number } = biz;
             const { disconnectBusiness } = require('./services/whatsappService');
-            await disconnectBusiness(biz.whatsapp_number);
-            // Also clear from sessions table
-            await supabase.from('whatsapp_sessions').delete().eq('whatsapp_number', biz.whatsapp_number);
+            
+            logger.info({ whatsapp_number }, 'Disconnecting and clearing session');
+            
+            // 1. Terminate active socket
+            await disconnectBusiness(whatsapp_number);
+            
+            // 2. Clear credentials from Supabase
+            const { error: sessionError } = await supabase
+                .from('whatsapp_sessions')
+                .delete()
+                .eq('whatsapp_number', whatsapp_number);
+            
+            if (sessionError) logger.error({ sessionError }, 'Failed to clear session from DB');
         }
 
-        const { error } = await supabase.from('businesses').delete().eq('id', id);
-        if (error) throw error;
+        // 3. Delete business record
+        const { error: deleteError } = await supabase.from('businesses').delete().eq('id', id);
+        if (deleteError) throw deleteError;
+
         res.json({ success: true });
     } catch (err) {
-        logger.error({ err }, 'Error deleting business');
+        logger.error({ err }, 'Error in DELETE /admin/businesses');
         res.status(500).json({ error: err.message });
     }
 });
