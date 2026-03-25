@@ -27,6 +27,7 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 app.use(cookieParser());
+app.use('/public', express.static('public'));
 
 // ─── Auth Middleware ─────────────────────────────────────────────────────────
 const authMiddleware = (req, res, next) => {
@@ -298,7 +299,7 @@ app.get('/', (req, res) => {
                     <button class="cta-main" onclick="openModal()">Solicitar una Demo</button>
                 </div>
                 <div class="hero-visual">
-                    <img src="/mockup_visual" alt="Mockup" class="hero-image">
+                    <img src="/public/mockup.png" alt="Mockup" class="hero-image">
                 </div>
             </section>
 
@@ -374,23 +375,6 @@ app.get('/', (req, res) => {
     `);
 });
 
-/**
- * Endpoint for the mockup image (serving generated artifact locally)
- */
-app.get('/mockup_visual', (req, res) => {
-    // Note: In real production, this would be a static asset in /public
-    // For this demonstration, we'll try to find the latest generated artifact
-    const fs = require('fs');
-    const path = require('path');
-    const artifactDir = 'C:\\Users\\DIEGO\\.gemini\\antigravity\\brain\\095de708-e7f4-4ad9-a723-6616e676f7d5';
-    const files = fs.readdirSync(artifactDir).filter(f => f.startsWith('bot_landing_mockup') && f.endsWith('.png'));
-    if (files.length > 0) {
-        const latest = files.sort().reverse()[0];
-        res.sendFile(path.join(artifactDir, latest));
-    } else {
-        res.status(404).send('Image not generated');
-    }
-});
 
 // ─── WhatsApp connection status ──────────────────────────────────────────────
 app.get('/status', (_req, res) => {
