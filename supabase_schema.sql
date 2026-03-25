@@ -8,6 +8,7 @@ create extension if not exists "uuid-ossp";
 create table if not exists businesses (
   id               uuid primary key default uuid_generate_v4(),
   business_name    text        not null,
+  description      text,
   whatsapp_number  text        not null unique,  -- E.164 e.g. +5491112345678
   welcome_message  text        not null default 'Hola 👋 ¿En qué te puedo ayudar?',
   menu_options     jsonb       not null default '{}',
@@ -56,12 +57,14 @@ create index if not exists idx_businesses_number on businesses(whatsapp_number);
 
 insert into businesses (
   business_name,
+  description,
   whatsapp_number,
   welcome_message,
   menu_options,
   responses
 ) values (
   'Restaurante Roma',
+  'Un restaurante italiano tradicional que sirve pastas caseras y pizzas al horno de leña.',
   '+5491112345678',
   'Hola 👋 Bienvenido a Restaurante Roma 🍝',
   '{
@@ -95,3 +98,18 @@ create index if not exists idx_sessions_number on whatsapp_sessions(whatsapp_num
 create trigger trg_whatsapp_sessions_updated_at
   before update on whatsapp_sessions
   for each row execute function set_updated_at();
+
+-- ============================================================
+-- Leads Capture Table
+-- ============================================================
+
+create table if not exists leads (
+  id               uuid primary key default uuid_generate_v4(),
+  business_name    text,
+  contact_name     text,
+  contact_number   text,
+  interest_level   text default 'Low',
+  created_at       timestamptz not null default now()
+);
+
+create index if not exists idx_leads_number on leads(contact_number);

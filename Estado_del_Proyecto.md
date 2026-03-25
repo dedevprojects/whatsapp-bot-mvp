@@ -1,21 +1,20 @@
-# Estado del Proyecto: WhatsApp Bot Universal 🤖
+# Estado del Proyecto - Universal WhatsApp Bot Engine
+**Fecha Última Actualización:** 25 de Marzo, 2026 (16:25)
 
-## 📍 ¿Dónde nos quedamos?
-El bot ya es una plataforma **SaaS completa en la nube**. Está desplegado en **Render.com**, tiene gestión de clientes desde el Dashboard y memoria de conversación inteligente.
+## ✅ Hitos Completados Hoy
+1. **Autenticación Premium**: Implementación de Login con diseño Glassmorphism y gestión de sesiones.
+2. **Dashboard v2.0**: Rediseño completo con layout de dos columnas y monitor en tiempo real.
+3. **Consola de Live Chat**: Monitor para visualizar mensajes sin salir del dashboard.
+4. **Landing Page Externa**: Nueva web de ventas premium en `/` con diseño Glassmorphism, hero section animada y visualización de industrias.
+5. **Auto-Sanación (Reset)**: Botón para forzar el reinicio de sesiones de WhatsApp.
 
-## ✅ Lo que ya funciona:
-1.  **Despliegue en la Nube (Render)**: El bot ya vive en `onrender.com` de forma gratuita y auto-gestionada.
-2.  **Dashboard Maestro**: Panel protegido para dar de alta y eliminar empresas sin tocar código.
-3.  **Memoria de IA (Contexto)**: Gemini ahora recuerda los últimos 6 mensajes de la charla para respuestas más naturales.
-4.  **Uptime Gratuito**: Sistema de "Self-ping" interno para que el bot no se duerma en Render.
-5.  **Persistencia Robusta**: Sesiones guardadas en Supabase (las conexiones sobreviven a reinicios).
-6.  **Cerebro Gemini (IA)**: Integración con Google Gemini para respuestas inteligentes basadas en la descripción del negocio.
-7.  **Pausa Automática**: El bot se silencia si un humano interviene en la charla.
+## 🛠️ Archivos Clave Modificados
+- `server.js`: Ahora incluye la Landing Page, ruta de mockup y re-mapeo de health-check a `/api/health`.
+- `seed-demos.js`: Población de base de datos para demos de industrias.
 
-## 🚀 Próximos pasos:
-*   **Tarea 1**: Configurar 3 "Demos" de diferentes rubros (Restaurante, Gym, Estética) para mostrar a clientes.
-*   **Tarea 2**: Crear landing page para vender el servicio.
-*   **Tarea 3**: Validar el primer cliente real y pasar al plan de pago de Render ($7 USD) para máxima estabilidad.
+## 🚀 Próximos Pasos (Próxima Sesión)
+1. **Validación de Campo**: Conectar un número real y validar el flujo completo "Lead -> Conversión".
+2. **Optimización de Memoria**: Revisar consumo de Baileys para despliegue en Render Pro.
+3. **Formulario de Contacto**: Conectar el botón de "Solicitar Demo" de la landing con un webhook o base de datos de leads.
 
----
-*Última actualización: 16 de Marzo de 2026 (Sesión de Despliegue & SaaS Completo)*
+**Estado Actual:** 🔵 Landing completa. El sistema es ahora una plataforma "cerrada" con cara al público y panel de administración.
