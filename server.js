@@ -27,6 +27,7 @@ app.get('/api/health', (_req, res) => {
     res.json({ status: 'ok', uptime: process.uptime() });
 });
 
+// --- MODERN LANDING PAGE ---
 app.get('/', (req, res) => {
     res.send(`
         <!DOCTYPE html>
@@ -34,36 +35,47 @@ app.get('/', (req, res) => {
         <head>
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <title>Universal WhatsApp Bot</title>
+            <title>Universal WhatsApp Bot | Premium MVP</title>
             <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;800&display=swap" rel="stylesheet">
             <style>
                 :root { --primary: #00ffa3; --secondary: #00d1ff; --bg: #020617; --glass: rgba(255, 255, 255, 0.03); --glass-border: rgba(255, 255, 255, 0.08); }
                 body { font-family: 'Outfit', sans-serif; background: var(--bg); color: #f8fafc; margin: 0; overflow-x: hidden; }
-                .hero { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 1rem; }
+                .blob { position: fixed; width: 500px; height: 500px; filter: blur(80px); opacity: 0.15; z-index: -1; }
+                .hero { height: 100vh; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; padding: 0 1rem; position: relative; }
+                nav { position: absolute; top: 0; width: 100%; padding: 2rem; display: flex; justify-content: space-between; align-items: center; max-width: 1200px; left: 50%; transform: translateX(-50%); box-sizing: border-box; }
                 .logo { font-size: 1.5rem; font-weight: 800; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
-                h1 { font-size: clamp(2.5rem, 8vw, 5rem); font-weight: 800; line-height: 1.1; margin-bottom: 1.5rem; }
-                .btn-main { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #020617; padding: 1rem 2.5rem; border-radius: 100px; font-weight: 700; text-decoration: none; display: inline-block; }
-                .glass-card { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 24px; padding: 2.5rem; width: 100%; max-width: 500px; }
-                input { width: 100%; padding: 1rem; margin-bottom: 1rem; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white; box-sizing: border-box; }
+                h1 { font-size: clamp(2.5rem, 8vw, 5rem); font-weight: 800; line-height: 1.1; margin-bottom: 1.5rem; max-width: 900px; }
+                .accent { color: var(--primary); }
+                .glass-card { background: var(--glass); backdrop-filter: blur(20px); border: 1px solid var(--glass-border); border-radius: 24px; padding: 2.5rem; box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.5); width: 100%; max-width: 500px; box-sizing: border-box; }
+                .btn-main { background: linear-gradient(135deg, var(--primary), var(--secondary)); color: #020617; padding: 1rem 2.5rem; border-radius: 100px; font-weight: 700; text-decoration: none; font-size: 1.1rem; transition: 0.3s; cursor: pointer; border: none; display: inline-block; }
+                .btn-main:hover { transform: scale(1.05); box-shadow: 0 0 30px rgba(0, 255, 163, 0.4); }
+                .features { padding: 8rem 2rem; max-width: 1200px; margin: 0 auto; display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; }
+                .feature-card { padding: 2.5rem; border-radius: 24px; background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.05); }
+                input { width: 100%; padding: 1rem; margin-bottom: 1rem; border-radius: 12px; background: rgba(255,255,255,0.05); border: 1px solid var(--glass-border); color: white; box-sizing: border-box; font-family: inherit; }
             </style>
         </head>
         <body>
-            <nav style="position: absolute; top:0; width:100%; padding:2rem; display:flex; justify-content:space-between; box-sizing:border-box;">
-                <div class="logo">UNIVERSAL BOT</div>
-                <a href="/login" style="color:white; text-decoration:none; opacity:0.6">Admin</a>
-            </nav>
+            <div class="blob" style="background:var(--primary); top: -10%; right: -10%;"></div>
+            <div class="blob" style="background:var(--secondary); bottom: -10%; left: -10%;"></div>
+            <nav><div class="logo">UNIVERSAL BOT</div><a href="/login" style="color:white; text-decoration:none; opacity:0.6">Acceso Admin</a></nav>
             <section class="hero">
-                <h1>Automatiza tu negocio <br><span style="color:var(--primary)">con IA en WhatsApp</span></h1>
-                <p style="color:#94a3b8; max-width:600px; margin-bottom:2rem;">Agenda y vende automáticamente las 24 horas.</p>
+                <h1>Impulsa tu negocio <br><span class="accent">con IA en WhatsApp</span></h1>
+                <p style="color:#94a3b8; font-size:1.2rem; margin-bottom:2.5rem;">Agenda, vende y responde automáticamente las 24 horas.</p>
                 <div class="glass-card">
+                    <h2 style="margin-top:0">Solicitar Demo Gratis</h2>
                     <form id="leadForm">
                         <input type="text" name="business_name" placeholder="Tu Negocio" required>
                         <input type="text" name="contact_name" placeholder="Tu Nombre" required>
                         <input type="tel" name="contact_number" placeholder="Celular" required>
-                        <button type="submit" class="btn-main" style="width:100%; cursor:pointer; border:none;">Reservar Demo</button>
+                        <button type="submit" class="btn-main" style="width:100%">Reservar Demo</button>
                     </form>
-                    <div id="response" style="margin-top:1rem; font-weight:600"></div>
+                    <div id="response" style="margin-top:1.5rem; font-weight:600"></div>
                 </div>
+            </section>
+            <section class="features">
+                <div class="feature-card"><h3 style="color:var(--primary)">Atención 24/7</h3><p>No pierdas ni una venta. Nuestra IA responde al instante.</p></div>
+                <div class="feature-card"><h3 style="color:var(--primary)">Ahorra Tiempo</h3><p>Automatiza los pedidos y preguntas frecuentes sin esfuerzo.</p></div>
+                <div class="feature-card"><h3 style="color:var(--primary)">Multi-Empresa</h3><p>Gestiona múltiples números desde un solo panel avanzado.</p></div>
             </section>
             <script>
                 document.getElementById('leadForm').onsubmit = async (e) => {
@@ -71,9 +83,9 @@ app.get('/', (req, res) => {
                     const resp = document.getElementById('response');
                     try {
                         const data = Object.fromEntries(new FormData(e.target));
-                        const r = await fetch('/api/leads', { method:'POST', headers:{'Content-Type':'application/json'}, body:JSON.stringify(data) });
-                        if(r.ok) { resp.style.color='#00ffa3'; resp.textContent='¡Enviado! Te contactaremos.'; e.target.reset(); }
-                    } catch(err) { resp.style.color='#f87171'; resp.textContent='Error al enviar.'; }
+                        const r = await fetch('/api/leads', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data) });
+                        if (r.ok) { resp.style.color = '#00ffa3'; resp.textContent = '¡Solicitud enviada! Nos contactaremos pronto.'; e.target.reset(); }
+                    } catch (err) { resp.style.color = '#f87171'; resp.textContent = 'Error al enviar datos.'; }
                 };
             </script>
         </body>
@@ -85,12 +97,12 @@ app.get('/login', (req, res) => {
     res.send(`
         <!DOCTYPE html>
         <html>
-        <head><title>Login</title><style>body{background:#0f172a;color:white;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;}form{background:rgba(255,255,255,0.05);padding:2rem;border-radius:1rem;border:1px solid rgba(255,255,255,0.1);}</style></head>
+        <head><title>Admin Login</title><style>body{background:#020617;color:white;display:flex;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;}form{background:rgba(255,255,255,0.03);padding:2.5rem;border-radius:1.5rem;border:1px solid rgba(255,255,255,0.1);width:300px;text-align:center;}</style></head>
         <body>
             <form action="/login" method="POST">
-                <h2>Admin Login</h2>
-                <input type="password" name="password" placeholder="Contraseña" required style="padding:10px;width:200px;border-radius:5px;border:none;"><br><br>
-                <button type="submit" style="padding:10px 20px;cursor:pointer;background:#00ffa3;border:none;border-radius:5px;font-weight:bold;">Entrar</button>
+                <h2 style="color:#00ffa3">Acceso Admin</h2>
+                <input type="password" name="password" placeholder="Clave de Acceso" required style="padding:12px;width:100%;border-radius:10px;border:none;margin-bottom:15px;box-sizing:border-box;">
+                <button type="submit" style="padding:12px 24px;width:100%;cursor:pointer;background:#00ffa3;border:none;border-radius:10px;font-weight:bold;">Entrar</button>
             </form>
         </body>
         </html>
@@ -105,16 +117,18 @@ app.post('/login', (req, res) => {
     res.redirect('/login?error=1');
 });
 
+// --- QR PAGE ---
 app.get('/qr/:number', async (req, res) => {
     const { number } = req.params;
     const qrString = getQRCode(number);
-    if (!qrString) return res.send('<h2>QR no disponible. Refresca el dashboard.</h2>');
+    if (!qrString) return res.send('<body style="background:#0f172a;color:white;text-align:center;padding:50px;font-family:sans-serif;"><h2>QR no disponible</h2><p>Es posible que ya estes conectado. Refresca el dashboard.</p></body>');
     try {
         const qrSvg = await QRCode.toString(qrString, { type: 'svg', margin: 2 });
-        res.send(`<!DOCTYPE html><html><body style="background:#0f172a;color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h2>Escanea con WhatsApp</h2><div style="background:white;padding:20px;border-radius:20px;">${qrSvg}</div></body></html>`);
+        res.send(`<!DOCTYPE html><html><body style="background:#0f172a;color:white;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;margin:0;"><h2>Escanea con WhatsApp</h2><div style="background:white;padding:20px;border-radius:24px;box-shadow:0 0 50px rgba(0,255,163,0.3);">${qrSvg}</div><p style="opacity:0.6;margin-top:20px;">Se vinculará automáticamente.</p></body></html>`);
     } catch (err) { res.status(500).send('Error'); }
 });
 
+// --- MODERN DASHBOARD ---
 app.get('/dashboard', authMiddleware, async (req, res) => {
     try {
         const { data: businesses } = await supabase.from('businesses').select('*').eq('active', true);
@@ -122,44 +136,117 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
         const rows = (businesses || []).map(biz => {
             const s = statuses[biz.whatsapp_number] || { connected: false };
             const qrLink = '/qr/' + encodeURIComponent(biz.whatsapp_number);
-            return '<tr>' +
-                '<td><strong>' + biz.business_name + '</strong></td>' +
-                '<td>' + (s.connected ? 'ONLINE' : 'OFFLINE') + '</td>' +
-                '<td>' + (s.connected ? 'Conectado' : '<a href="' + qrLink + '" target="_blank">Escanear QR</a>') + '</td>' +
-                '</tr>';
+            return `
+                <tr>
+                    <td><strong>${biz.business_name}</strong><br><small style="color:#64748b">${biz.whatsapp_number}</small></td>
+                    <td><span style="padding:4px 12px;border-radius:20px;font-size:0.75rem;font-weight:700;background:${s.connected ? 'rgba(0,255,163,0.1)' : 'rgba(255,152,0,0.1)'};color:${s.connected ? '#00ffa3' : '#ff9800'}">${s.connected ? 'ONLINE' : 'OFFLINE'}</span></td>
+                    <td style="display:flex; gap:10px;">
+                        ${s.connected ? '<span style="color:#64748b">Activo</span>' : '<a href="' + qrLink + '" target="_blank" style="color:#00ffa3;text-decoration:none;font-weight:600;">Escanear QR</a>'}
+                        <button onclick="fetch('/admin/businesses/' + encodeURIComponent('${biz.whatsapp_number}') + '/reset', {method:'POST'}).then(()=>location.reload())" style="background:none;border:none;color:#94a3b8;cursor:pointer;">Reset</button>
+                    </td>
+                </tr>`;
         }).join('');
-        res.send(`<!DOCTYPE html><html><head><title>Dashboard</title><style>body{background:#0f172a;color:white;font-family:sans-serif;padding:2rem;}table{width:100%;border-collapse:collapse;}th,td{text-align:left;padding:1rem;border-bottom:1px solid rgba(255,255,255,0.1);}</style></head><body><h1>Admin Panel</h1><table><thead><tr><th>Negocio</th><th>Estado</th><th>Accion</th></tr></thead><tbody>${rows}</tbody></table><h2>Lead Monitor</h2><div id="leads">Cargando...</div><script>function update(){ fetch('/admin/leads').then(r=>r.json()).then(l=>{ document.getElementById('leads').innerHTML = l.map(x=>'<div>'+x.business_name+' - '+x.contact_name+'</div>').join(''); }); } setInterval(update, 5000); update();</script></body></html>`);
+
+        res.send(`
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <title>Dashboard Admin | Universal Bot</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;600;800&display=swap" rel="stylesheet">
+    <style>
+        :root { --primary: #00ffa3; --secondary: #00d1ff; --bg: #0f172a; --card: rgba(30, 41, 59, 0.7); --border: rgba(255,255,255,0.1); }
+        body { font-family: 'Outfit', sans-serif; background: var(--bg); color: #f8fafc; margin: 0; display: grid; grid-template-columns: 1fr 400px; height: 100vh; overflow: hidden; }
+        .main-content { padding: 2rem; overflow-y: auto; }
+        .side-panel { background: rgba(0,0,0,0.2); border-left: 1px solid var(--border); padding: 1.5rem; display: flex; flex-direction: column; }
+        .card { background: var(--card); backdrop-filter: blur(10px); border: 1px solid var(--border); border-radius: 20px; padding: 1.5rem; margin-bottom: 2.5rem; }
+        h1, h2 { margin-top: 0; background: linear-gradient(to right, var(--primary), var(--secondary)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+        table { width: 100%; border-collapse: collapse; }
+        th { text-align: left; padding: 1rem; color: #94a3b8; font-size: 0.7rem; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+        td { padding: 1.5rem 1rem; border-bottom: 1px solid var(--border); }
+        .stats-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 2.5rem; }
+        .stat-card { background: var(--card); border: 1px solid var(--border); border-radius: 16px; padding: 1.2rem; text-align: center; }
+        .stat-value { font-size: 1.5rem; font-weight: 800; color: var(--primary); display: block; }
+        .console { flex: 1; background: rgba(0,0,0,0.5); border-radius: 12px; padding: 1.5rem; font-family: monospace; font-size: 0.8rem; overflow-y: auto; color: #10b981; }
+        .console-entry { margin-bottom: 8px; border-bottom: 1px solid rgba(255,255,255,0.02); padding-bottom: 5px; }
+    </style>
+</head>
+<body>
+    <div class="main-content">
+        <h1>Centro de Control Pro</h1>
+        <div class="stats-grid">
+            <div class="stat-card"><span style="color:#94a3b8; font-size:0.7rem;">BOTS ONLINE</span><span class="stat-value">${Object.values(statuses).filter(s => s.connected).length}</span></div>
+            <div class="stat-card"><span style="color:#94a3b8; font-size:0.7rem;">LEADS HOY</span><span class="stat-value" id="leads-total">--</span></div>
+            <div class="stat-card"><span style="color:#94a3b8; font-size:0.7rem;">UPTIME</span><span class="stat-value" style="font-size:1rem;">${Math.floor(process.uptime()/3600)}h ${Math.floor((process.uptime()%3600)/60)}m</span></div>
+        </div>
+        <div class="card">
+            <h2>Instancias Activas</h2>
+            <table>
+                <thead><tr><th>Empresa</th><th>Estado</th><th>Accion</th></tr></thead>
+                <tbody>${rows}</tbody>
+            </table>
+        </div>
+        <div class="card">
+            <h2>Monitor de Leads (Ventas)</h2>
+            <table style="font-size:0.85rem">
+                <thead><tr><th>Negocio</th><th>Nombre</th><th>Fecha</th></tr></thead>
+                <tbody id="leads-body"></tbody>
+            </table>
+        </div>
+    </div>
+    <div class="side-panel">
+        <h2>Live Activity Console</h2>
+        <div id="logs" class="console">Conectando...</div>
+    </div>
+    <script>
+        function update(){
+            fetch('/admin/messages').then(r=>r.json()).then(m=>{
+                document.getElementById('logs').innerHTML = m.map(x=>'<div class="console-entry">['+(new Date(x.created_at).toLocaleTimeString())+'] '+x.message_text+'</div>').join('');
+            });
+            fetch('/admin/leads').then(r=>r.json()).then(l=>{
+                document.getElementById('leads-total').textContent = l.length;
+                document.getElementById('leads-body').innerHTML = l.map(x=>'<tr><td><strong>'+x.business_name+'</strong></td><td>'+x.contact_name+'</td><td>'+new Date(x.created_at).toLocaleDateString()+'</td></tr>').join('') || '<tr><td colspan="3">Sin leads</td></tr>';
+            });
+        }
+        setInterval(update, 5000); update();
+    </script>
+</body>
+</html>`);
     } catch (e) { res.status(500).send('Error'); }
 });
 
 app.get('/admin/status', (req, res) => res.json(getStatus()));
+
 app.get('/admin/messages', async (req, res) => {
     const { data } = await supabase.from('messages').select('*').order('created_at', { ascending: false }).limit(30);
     res.json(data || []);
 });
+
 app.get('/admin/leads', async (req, res) => {
     const { data } = await supabase.from('leads').select('*').order('created_at', { ascending: false }).limit(20);
     res.json(data || []);
 });
+
 app.post('/api/leads', async (req, res) => {
     const { business_name, contact_name, contact_number } = req.body;
-    const { error } = await supabase.from('leads').insert([{ business_name, contact_name, contact_number }]);
+    const { error } = await supabase.from('leads').insert([{ business_name, contact_name, contact_number, interest_level: 'Discovery' }]);
     if (error) return res.status(500).json({ error });
     res.status(201).json({ success: true });
 });
+
 app.post('/admin/businesses/:number/reset', async (req, res) => {
     await disconnectBusiness(req.params.number);
     await supabase.from('whatsapp_sessions').delete().eq('whatsapp_number', req.params.number);
     res.json({ success: true });
 });
+
 app.delete('/admin/businesses/:id', async (req, res) => {
     await supabase.from('businesses').delete().eq('id', req.params.id);
     res.json({ success: true });
 });
 
 async function main() {
-    const RENDER_URL = process.env.RENDER_EXTERNAL_URL;
-    if (RENDER_URL) setInterval(() => { require('https').get(RENDER_URL + '/api/health', () => {}); }, 10 * 60 * 1000);
+    const URL = process.env.RENDER_EXTERNAL_URL;
+    if (URL) setInterval(() => { require('https').get(URL + '/api/health', () => {}); }, 10 * 60 * 1000);
     app.listen(PORT, () => { loadAndConnectBusinesses(); });
 }
 
