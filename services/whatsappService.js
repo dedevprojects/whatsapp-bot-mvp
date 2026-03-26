@@ -37,11 +37,10 @@ if (!fs.existsSync(SESSIONS_DIR)) {
  * @param {string} [businessName] - Human-readable label for logs
  */
 async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
-    // const sessionPath = path.join(SESSIONS_DIR, whatsappNumber.replace(/[^a-zA-Z0-9]/g, ''));
-    // const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    const sessionPath = path.join(SESSIONS_DIR, whatsappNumber.replace(/[^a-zA-Z0-9]/g, ''));
+    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
     
-    // Switching back to Supabase auth for Render persistence
-    const { state, saveCreds } = await useSupabaseAuthState(whatsappNumber);
+    // const { state, saveCreds } = await useSupabaseAuthState(whatsappNumber); // DISABLED TO FIX CONNECTION TIMEOUT 
 
     
     let version;
