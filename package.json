@@ -14,7 +14,7 @@
   "dependencies": {
     "@google/generative-ai": "^0.24.1",
     "@supabase/supabase-js": "^2.39.7",
-    "@whiskeysockets/baileys": "^6.11.0",
+    "@whiskeysockets/baileys": "^6.7.9",
     "axios": "^1.13.6",
     "cookie-parser": "^1.4.7",
     "dotenv": "^16.4.5",

@@ -61,7 +61,7 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
         printQRInTerminal: false,
         logger: logger.child({ component: 'baileys', business: businessName }),
         // USE MAC OS DISGUISE TO PREVENT WHATSAPP REJECTING THE QR CODE
-        browser: ['Plusbot AI Agent', 'Chrome', '114.0.0.0'],
+        browser: Browsers.macOS('Desktop'),
         syncFullHistory: false,
         getMessage: async () => ({ conversation: '' }),
     });
