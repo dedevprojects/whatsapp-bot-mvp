@@ -1,39 +1,28 @@
 require('dotenv').config();
-const supabase = require('./config/supabase');
+const { createClient } = require('@supabase/supabase-js');
 
-async function checkColumn() {
-    console.log('--- Checking Business Table ---');
-    const { data, error } = await supabase
-        .from('businesses')
-        .select('*')
-        .limit(1);
+const supabase = createClient(
+    process.env.SUPABASE_URL,
+    process.env.SUPABASE_KEY
+);
 
-    if (error) {
-        console.error('Error selecting from businesses:', error.message);
-        return;
-    }
-
-    if (data && data.length > 0) {
-        const row = data[0];
-        console.log('Columns found:', Object.keys(row).join(', '));
-        if ('description' in row) {
-            console.log('✅ Column "description" exists!');
-        } else {
-            console.warn('❌ Column "description" is MISSING.');
-        }
-    } else {
-        console.log('No records found, trying to select specific column...');
-        const { error: colError } = await supabase
-            .from('businesses')
-            .select('description')
-            .limit(1);
+async function checkTables() {
+    console.log('--- Database Check ---');
+    try {
+        const { error: bizError } = await supabase.from('businesses').select('*').limit(1);
+        console.log('Businesses table exists:', !bizError);
+        if (bizError) console.error('Businesses Error:', bizError.message);
         
-        if (colError) {
-            console.warn('❌ Column "description" is MISSING or inaccessible:', colError.message);
-        } else {
-            console.log('✅ Column "description" exists (selected it specifically)!');
-        }
+        const { error: leadsError } = await supabase.from('leads').select('*').limit(1);
+        console.log('Leads table exists:', !leadsError);
+        if (leadsError) console.error('Leads Error:', leadsError.message);
+
+        const { error: sessionsError } = await supabase.from('whatsapp_sessions').select('*').limit(1);
+        console.log('Sessions table exists:', !sessionsError);
+        if (sessionsError) console.error('Sessions Error:', sessionsError.message);
+    } catch (e) {
+        console.error('Fatal error checking tables:', e);
     }
 }
 
-checkColumn();
+checkTables();

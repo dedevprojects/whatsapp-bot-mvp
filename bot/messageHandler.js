@@ -21,7 +21,7 @@ const sessions = new Map();
 // Silence period after human interaction (2 hours)
 const HUMAN_SILENCE_MS = 2 * 60 * 60 * 1000;
 
-const UNKNOWN_RESPONSE = 'Por favor elegí una opción del menú. 📋';
+const UNKNOWN_RESPONSE = 'Por favor elegí una opción del menú.';
 
 /**
  * Processes a single incoming message and returns the reply text(s).

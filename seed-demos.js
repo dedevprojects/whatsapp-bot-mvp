@@ -55,6 +55,24 @@ const demos = [
             "3": "Esmaltado semipermanente: $1500 | Esculpidas: $2500.",
             "4": "¡Regalá bienestar! Tenemos vouchers desde $2000. ¿Para quién es el regalo?"
         }
+    },
+    {
+        business_name: 'Altos del Sur 🏠 (Inmobiliaria)',
+        description: 'Venta y alquiler de departamentos, casas y terrenos. Tasaciones sin cargo y asesoramiento jurídico.',
+        whatsapp_number: '+5491100000004',
+        welcome_message: '¡Hola! Bienvenido a Inmobiliaria Altos del Sur 🏠 ¿Cómo podemos ayudarte hoy?',
+        menu_options: {
+            "1": "🏠 Ver Alquileres",
+            "2": "🔝 Propiedades en Venta",
+            "3": "📈 Tasación s/cargo",
+            "4": "📄 Documentación necesaria"
+        },
+        responses: {
+            "1": "Dejanos tu presupuesto aproximado y zona de interés (ej: Palermo, Centro) y te enviamos opciones.",
+            "2": "Nuevas unidades en preventa en Barrio Norte desde USD 85.000.",
+            "3": "¡Perfecto! Te asignamos un tasador profesional hoy mismo. ¿Qué dirección evaluamos?",
+            "4": "Garantía propietaria (CABA/Zona Norte) y demostración de ingresos (3 últimos recibos)."
+        }
     }
 ];
 

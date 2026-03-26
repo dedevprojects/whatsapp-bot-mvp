@@ -1,30 +1,20 @@
 'use strict';
 
-/**
- * WhatsApp Service
- *
- * Manages one or more Baileys socket connections.
- * Each business that connects its WhatsApp number gets its own socket,
- * stored in the `connections` Map, keyed by whatsapp_number.
- *
- * Session data (auth state + credentials) is persisted to disk under
- * ./sessions/<whatsapp_number>/ so connections survive server restarts.
- */
-
 const path = require('path');
 const fs = require('fs');
 const {
     default: makeWASocket,
-    useMultiFileAuthState,
     DisconnectReason,
     fetchLatestBaileysVersion,
     isJidBroadcast,
     isJidGroup,
+    Browsers,
+    useMultiFileAuthState
 } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const { processMessage } = require('./botEngine');
 const logger = require('../utils/logger');
-const { useSupabaseAuthState } = require('../utils/supabaseAuth');
+// const { useSupabaseAuthState } = require('../utils/supabaseAuth'); // disabled to prevent auth timeout
 
 // Map<whatsapp_number, WASocket>
 const connections = new Map();
@@ -46,19 +36,29 @@ if (!fs.existsSync(SESSIONS_DIR)) {
  * @param {string} [businessName] - Human-readable label for logs
  */
 async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
-    const { state, saveCreds } = await useSupabaseAuthState(whatsappNumber);
-    const { version } = await fetchLatestBaileysVersion();
+    const sessionPath = path.join(SESSIONS_DIR, whatsappNumber.replace(/[^a-zA-Z0-9]/g, ''));
+    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    
+    let version;
+    try {
+        const result = await fetchLatestBaileysVersion();
+        version = result.version;
+    } catch (err) {
+        logger.warn({ err }, 'Failed to fetch latest Baileys version, using default');
+        version = [2, 3000, 1015901307]; // Fallback
+    }
 
     logger.info({ businessName, whatsappNumber, version }, 'Starting Baileys socket');
 
     const sock = makeWASocket({
         version,
         auth: state,
-        printQRInTerminal: false,     // we print manually to control formatting
+        printQRInTerminal: false,
         logger: logger.child({ component: 'baileys', business: businessName }),
-        browser: ['Bot Universal', 'Chrome', '120.0'],
+        // USE MAC OS DISGUISE TO PREVENT WHATSAPP REJECTING THE QR CODE
+        browser: Browsers.macOS('Desktop'),
         syncFullHistory: false,
-        getMessage: async () => ({ conversation: '' }), // minimal history
+        getMessage: async () => ({ conversation: '' }),
     });
 
     connections.set(whatsappNumber, sock);
@@ -87,16 +87,16 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
             const shouldReconnect = statusCode !== DisconnectReason.loggedOut;
 
             logger.warn(
-                { businessName, whatsappNumber, statusCode, shouldReconnect },
+                { businessName, whatsappNumber, statusCode, error: lastDisconnect?.error?.message },
                 'WhatsApp connection closed'
             );
 
             if (shouldReconnect) {
-                const delay = 5000; // 5 s back-off before retry
+                const delay = 5000;
                 logger.info({ businessName, whatsappNumber, delay }, 'Reconnecting…');
                 setTimeout(() => connectBusiness(whatsappNumber, businessName), delay);
             } else {
-                logger.error({ businessName, whatsappNumber }, 'Logged out — delete session to re-link');
+                logger.error({ businessName, whatsappNumber }, 'Logged out — session cleared');
                 connections.delete(whatsappNumber);
             }
         }
@@ -108,11 +108,9 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
 
         for (const msg of messages) {
             try {
-                // Skip broadcast / group messages
                 const remoteJid = msg.key.remoteJid || '';
                 if (isJidBroadcast(remoteJid) || isJidGroup(remoteJid)) continue;
 
-                // Extract plain text (handles text, extended text, and button replies)
                 const text =
                     msg.message?.conversation ||
                     msg.message?.extendedTextMessage?.text ||
@@ -120,9 +118,9 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                     msg.message?.listResponseMessage?.title ||
                     '';
 
+                // Only process if text exists or is from us (human intervention detection)
                 if (!text && !msg.key.fromMe) continue;
 
-                // The bot's own JID tells us which number received the message
                 const recipientJid = sock.user?.id || '';
 
                 await processMessage({
@@ -143,22 +141,22 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
 
 /**
  * Sends a plain-text message via a given socket.
- * @param {WASocket} sock
- * @param {string} jid
- * @param {string} text
  */
 async function sendMessage(sock, jid, text) {
+    if (!sock) throw new Error('No socket available');
     await sock.sendMessage(jid, { text });
 }
 
 /**
  * Disconnects a business's WhatsApp session gracefully.
- * @param {string} whatsappNumber
  */
 async function disconnectBusiness(whatsappNumber) {
     const sock = connections.get(whatsappNumber);
     if (sock) {
-        await sock.logout();
+        try {
+            await sock.logout();
+            sock.ws.close();
+        } catch (e) {}
         connections.delete(whatsappNumber);
         logger.info({ whatsappNumber }, 'WhatsApp disconnected');
     }
@@ -180,8 +178,6 @@ function getStatus() {
 
 /**
  * Gets the current QR code for a given number.
- * @param {string} whatsappNumber
- * @returns {string|null}
  */
 function getQRCode(whatsappNumber) {
     return qrCodes.get(whatsappNumber) || null;

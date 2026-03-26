@@ -9,6 +9,7 @@ function getGenAI() {
     if (!genAI) {
         const apiKey = process.env.GEMINI_API_KEY;
         if (!apiKey || apiKey === 'your-gemini-api-key-here') {
+            logger.error('GEMINI_API_KEY is not configured or has placeholder value');
             return null;
         }
         genAI = new GoogleGenerativeAI(apiKey);
@@ -27,12 +28,12 @@ function getGenAI() {
 async function getChatResponse(prompt, business, history = []) {
     const ai = getGenAI();
     if (!ai) {
-        logger.warn('GEMINI_API_KEY not configured or invalid. Falling back to empty response.');
+        logger.warn('GEMINI_API_KEY not configured. Falling back to empty response.');
         return '';
     }
 
     try {
-        const model = ai.getGenerativeModel({ model: "gemini-flash-latest" });
+        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash-latest" });
 
         const systemInstruction = `
 Eres un asistente virtual para la empresa "${business.business_name}".
@@ -51,24 +52,60 @@ Pautas:
 - IMPORTANTE: Tienes acceso al historial reciente de la conversación para entender el contexto.
 `;
 
-        // Format history for Gemini
-        const contents = history.map(msg => ({
-            role: msg.role === 'inbound' ? 'user' : 'model',
-            parts: [{ text: msg.text }]
-        }));
+        // Format history for Gemini, ensuring strictly alternating roles
+        let contents = [];
+        
+        for (const msg of history) {
+            if (!msg.text) continue;
+            const mappedRole = msg.role === 'inbound' ? 'user' : 'model';
+            
+            const lastMsg = contents[contents.length - 1];
+            if (lastMsg && lastMsg.role === mappedRole) {
+                // Merge consecutive messages with the same role
+                lastMsg.parts[0].text += `\n${msg.text}`;
+            } else {
+                contents.push({
+                    role: mappedRole,
+                    parts: [{ text: msg.text }]
+                });
+            }
+        }
 
-        // Add the current user message
-        contents.push({
-            role: 'user',
-            parts: [{ text: `${systemInstruction}\n\nPregunta actual: ${prompt}` }]
-        });
+        // Prevent duplication: if the prompt is already at the end of the history
+        const lastMsg = contents[contents.length - 1];
+        if (lastMsg && lastMsg.role === 'user' && lastMsg.parts[0].text.includes(prompt.trim('\n '))) {
+            contents.pop();
+        }
 
+        // Add the current user message with system instruction
+        const promptWithContext = `${systemInstruction}\n\nPregunta actual: ${prompt}`;
+        const finalLastMsg = contents[contents.length - 1];
+        
+        if (finalLastMsg && finalLastMsg.role === 'user') {
+            finalLastMsg.parts[0].text += `\n${promptWithContext}`;
+        } else {
+            contents.push({
+                role: 'user',
+                parts: [{ text: promptWithContext }]
+            });
+        }
+
+        // IMPORTANT: Gemini strictly requires the conversation strictly starts with 'user'
+        while (contents.length > 0 && contents[0].role === 'model') {
+            contents.shift();
+        }
+
+        logger.info({ business: business.business_name }, 'Calling Gemini API for response');
         const result = await model.generateContent({ contents });
+        const text = result.response.text();
 
-        const response = result.response;
-        return response.text();
+        if (!text) {
+            throw new Error('Gemini returned an empty response');
+        }
+
+        return text;
     } catch (error) {
-        logger.error({ error }, 'Error calling Gemini API');
+        logger.error({ error: error.message, stack: error.stack }, 'Error calling Gemini API');
         return 'Lo siento, tuve un pequeño problema procesando tu mensaje. Un humano te contactará pronto.';
     }
 }

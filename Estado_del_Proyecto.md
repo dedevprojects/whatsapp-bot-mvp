@@ -7,6 +7,7 @@
 3. **Consola de Live Chat**: Monitor para visualizar mensajes sin salir del dashboard.
 4. **Landing Page Externa**: Nueva web de ventas premium en `/` con diseño Glassmorphism, hero section animada y visualización de industrias.
 5. **Auto-Sanación (Reset)**: Botón para forzar el reinicio de sesiones de WhatsApp.
+6. **Monitor de Leads**: El Admin Dashboard ahora muestra las solicitudes de demo capturadas desde la landing page.
 
 ## 🛠️ Archivos Clave Modificados
 - `server.js`: Ahora incluye la Landing Page, ruta de mockup y re-mapeo de health-check a `/api/health`.
