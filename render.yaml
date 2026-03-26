@@ -19,5 +19,7 @@ services:
         sync: false
       - key: LOG_LEVEL
         value: info
+      - key: RENDER_EXTERNAL_URL
+        sync: false
       - key: PORT
         value: 10000
