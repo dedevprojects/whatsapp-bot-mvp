@@ -14,7 +14,8 @@ const {
 const qrcode = require('qrcode-terminal');
 const { processMessage } = require('./botEngine');
 const logger = require('../utils/logger');
-// const { useSupabaseAuthState } = require('../utils/supabaseAuth'); // disabled to prevent auth timeout
+const { useSupabaseAuthState } = require('../utils/supabaseAuth');
+
 
 // Map<whatsapp_number, WASocket>
 const connections = new Map();
@@ -36,8 +37,12 @@ if (!fs.existsSync(SESSIONS_DIR)) {
  * @param {string} [businessName] - Human-readable label for logs
  */
 async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
-    const sessionPath = path.join(SESSIONS_DIR, whatsappNumber.replace(/[^a-zA-Z0-9]/g, ''));
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    // const sessionPath = path.join(SESSIONS_DIR, whatsappNumber.replace(/[^a-zA-Z0-9]/g, ''));
+    // const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    
+    // Switching back to Supabase auth for Render persistence
+    const { state, saveCreds } = await useSupabaseAuthState(whatsappNumber);
+
     
     let version;
     try {
