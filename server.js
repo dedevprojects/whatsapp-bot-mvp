@@ -399,12 +399,39 @@ app.get('/logout', (req, res) => {
 app.get('/qr/:number', async (req, res) => {
     const { number } = req.params;
     const qrString = getQRCode(number);
-    if (!qrString) return res.send('<h2>QR no disponible</h2>');
+    
+    if (!qrString) {
+        logger.info({ number }, 'Intento de ver QR pero no está disponible aún');
+        return res.send(`
+            <!DOCTYPE html>
+            <html>
+            <body style="background:#f4f7f5;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;text-align:center;">
+                <div style="background:white;padding:3rem;border-radius:2rem;box-shadow:0 20px 50px rgba(0,0,0,0.05);">
+                    <h2 style="color:#00593B;">QR no disponible</h2>
+                    <p style="color:#666;">El bot se está iniciando o ya está conectado.<br>Refresca en unos segundos.</p>
+                    <button onclick="location.reload()" style="margin-top:1rem;padding:10px 20px;border-radius:10px;border:none;background:#25D366;color:white;font-weight:bold;cursor:pointer;">Actualizar ↻</button>
+                </div>
+            </body>
+            </html>
+        `);
+    }
+
     try {
-        const qrSvg = await QRCode.toString(qrString, { type: 'svg', margin: 2 });
-        res.send('<!DOCTYPE html><html><body style="background:#f4f7f5;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;"><h2>Vincular WhatsApp</h2><div style="background:white;padding:20px;border-radius:2rem;">' + qrSvg + '</div></body></html>');
+        const qrSvg = await QRCode.toString(qrString, { 
+            type: 'svg', 
+            margin: 2,
+            width: 320,
+            color: {
+                dark: '#000000',
+                light: '#ffffff'
+            }
+        });
+        
+        logger.info({ number }, 'Enviando QR exitosamente');
+        res.send(`<!DOCTYPE html><html><body style="background:#f4f7f5;display:flex;flex-direction:column;justify-content:center;align-items:center;height:100vh;font-family:sans-serif;margin:0;"><div style="background:white;padding:30px;border-radius:30px;box-shadow:0 30px 60px rgba(0,45,30,0.1);text-align:center;"><h2 style="color:#00593B;margin-top:0;">Vincular WhatsApp</h2><div style="background:white;padding:10px;border-radius:15px;border:1px solid #eee;">${qrSvg}</div><p style="margin-top:20px;color:#666;">Escanea desde WhatsApp <br><b>Dispositivos vinculados</b></p></div><script>setTimeout(() => location.reload(), 25000);</script></body></html>`);
     } catch (err) { res.status(500).send('Error'); }
 });
+
 
 app.get('/dashboard', authMiddleware, async (req, res) => {
     try {
