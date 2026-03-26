@@ -33,7 +33,7 @@ async function getChatResponse(prompt, business, history = []) {
     }
 
     try {
-        const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
+        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
 
         const systemInstruction = `
 Eres un asistente virtual para la empresa "${business.business_name}".
