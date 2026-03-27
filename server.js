@@ -226,6 +226,7 @@ app.get('/', (req, res) => {
             <form id="pForm">
                 <input type="text" name="business_name" placeholder="Nombre de tu Negocio" required>
                 <input type="text" name="contact_name" placeholder="Tu Nombre" required>
+                <input type="email" name="contact_email" placeholder="Tu Email (Ej: juan@email.com)" required>
                 <input type="tel" name="contact_number" placeholder="WhatsApp (Ej: +54 9 11...)" required>
                 <button type="submit" class="btn-cta" style="width:100%; border-radius:18px;" id="btnP">¡Quiero Mi Plusbot! 🤖</button>
             </form>
@@ -331,7 +332,7 @@ app.get('/', (req, res) => {
                 if(r.ok) { 
                     st.style.color='#2ecc71'; 
                     st.innerText='¡Listo! ✅ Guardamos tus datos. Abriendo tu correo para el contacto final...'; 
-                    const mailtoUrl = 'mailto:agenciagolweb@gmail.com?subject=Interés en Plusbot: ' + data.business_name + '&body=Hola! Mi nombre es ' + data.contact_name + ' de ' + data.business_name + '. Me gustaría activar mi Plusbot. Mi WhatsApp: ' + data.contact_number;
+                    const mailtoUrl = 'mailto:agenciagolweb@gmail.com?subject=Interés en Plusbot: ' + data.business_name + '&body=Hola! Mi nombre es ' + data.contact_name + ' de ' + data.business_name + '. Email: ' + data.contact_email + '. Me gustaría activar mi Plusbot. Mi WhatsApp: ' + data.contact_number;
                     setTimeout(() => { 
                         window.location.href = mailtoUrl;
                         st.innerText = '¡Perfecto! ✅ Si no se abrió tu correo, escribe a agenciagolweb@gmail.com';
@@ -779,9 +780,9 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
 
 
 app.post('/api/leads', async (req, res) => {
-    const { business_name, contact_name, contact_number } = req.body;
+    const { business_name, contact_name, contact_number, contact_email } = req.body;
     try {
-        await supabase.from('leads').insert([{ business_name, contact_name, contact_number }]);
+        await supabase.from('leads').insert([{ business_name, contact_name, contact_number, contact_email }]);
         res.status(201).json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
