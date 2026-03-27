@@ -24,11 +24,11 @@ function getGenAI() {
  * @param {string} params.text - The user message text
  * @param {object} params.business - Business info to provide context to the AI
  * @param {Array<{role: string, text: string}>} params.history - Recent conversation history
- * @param {Buffer} params.audioBuffer - Optional audio data
- * @param {string} params.mimeType - Optional audio mime type
+ * @param {Buffer} params.mediaBuffer - Optional media data (audio, image, document)
+ * @param {string} params.mimeType - Optional media mime type
  * @returns {Promise<string>}
  */
-async function getChatResponse({ text, business, history = [], audioBuffer = null, mimeType = null }) {
+async function getChatResponse({ text, business, history = [], mediaBuffer = null, mimeType = null }) {
     const ai = getGenAI();
     if (!ai) {
         logger.warn('GEMINI_API_KEY not configured. Falling back to empty response.');
@@ -36,8 +36,6 @@ async function getChatResponse({ text, business, history = [], audioBuffer = nul
     }
 
     try {
-        const model = ai.getGenerativeModel({ model: "gemini-1.5-flash" });
-
         const systemInstruction = `
 Eres un asistente virtual para la empresa "${business.business_name}".
 Tu objetivo es ser amable, servicial y profesional.
@@ -61,6 +59,12 @@ Pautas:
 - Tu respuesta debe ser natural, como si fueras un humano atendiendo el negocio.
 `;
 
+        // Initialize model with system instruction (Optimized for Gemini 1.5 Pro/Flash)
+        const model = ai.getGenerativeModel({ 
+            model: "gemini-1.5-flash",
+            systemInstruction: systemInstruction 
+        });
+
         // Format history for Gemini
         let contents = [];
         
@@ -79,15 +83,15 @@ Pautas:
             }
         }
 
-        // Add the current user message with system instruction
-        const userParts = [{ text: `${systemInstruction}\n\nPregunta actual: ${text || "[Mensaje de voz]"}` }];
+        // Add the current user message
+        const userParts = [{ text: text || "Analiza el archivo adjunto o continúa la conversación." }];
         
-        // Add Audio if present (MULTIMODAL support)
-        if (audioBuffer) {
+        // Add Media if present (MULTIMODAL support: Audio, Image, PDF)
+        if (mediaBuffer) {
             userParts.push({
                 inlineData: {
-                    data: audioBuffer.toString('base64'),
-                    mimeType: mimeType || 'audio/ogg'
+                    data: mediaBuffer.toString('base64'),
+                    mimeType: mimeType || 'image/jpeg'
                 }
             });
         }
@@ -104,8 +108,9 @@ Pautas:
 
         logger.info({ 
             business: business.business_name, 
-            hasAudio: !!audioBuffer,
-            audioSize: audioBuffer?.length 
+            hasMedia: !!mediaBuffer,
+            mimeType,
+            mediaSize: mediaBuffer?.length 
         }, 'Calling Gemini API (Multimodal)');
 
         const result = await model.generateContent({ contents });

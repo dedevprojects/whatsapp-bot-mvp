@@ -585,7 +585,10 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
             </table>
         </div>
         <div class="card">
-            <h2>Interesados (Leads)</h2>
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom: 2px solid #F4F7F6; padding-bottom:1rem;">
+                <h2 style="margin:0; border:none; padding:0;">Interesados (Leads)</h2>
+                <a href="/dashboard/leads/export" class="btn-s" style="background:#3498db;">⬇️ CSV</a>
+            </div>
             <div style="max-height: 60vh; overflow-y: auto;">
                 ${leadRows || '<p style="color:#999; text-align:center; padding:2rem;">No hay interesados aún.</p>'}
             </div>
@@ -683,6 +686,28 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             </div>
 
             <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
+
+            <div class="form-group" style="background:#f0faf6; padding: 2rem; border-radius: 20px; border: 1px solid #d4ede3;">
+                <label style="color:#00593B; display:flex; align-items:center; gap:10px;">
+                    <input type="checkbox" name="tts_enabled" style="width:auto; margin:0;" ${biz.tts_enabled ? 'checked' : ''}>
+                    Activar Respuestas por Voz (TTS) 🎙️
+                </label>
+                <p class="hint">Si se activa, el bot enviará un audio con voz humana después de cada mensaje de texto. (Costo $0)</p>
+                
+                <div style="margin-top: 1.5rem;">
+                    <label>Elegir Voz del Bot</label>
+                    <select name="tts_voice" style="width:100%; padding:12px; border-radius:10px; border:1px solid #ccc;">
+                        <option value="es-MX-JorgeNeural" ${biz.tts_voice === 'es-MX-JorgeNeural' ? 'selected' : ''}>🇲🇽 Jorge (Hombre - México)</option>
+                        <option value="es-MX-DaliaNeural" ${biz.tts_voice === 'es-MX-DaliaNeural' ? 'selected' : ''}>🇲🇽 Dalia (Mujer - México)</option>
+                        <option value="es-ES-AlvaroNeural" ${biz.tts_voice === 'es-ES-AlvaroNeural' ? 'selected' : ''}>🇪🇸 Álvaro (Hombre - España)</option>
+                        <option value="es-ES-ElviraNeural" ${biz.tts_voice === 'es-ES-ElviraNeural' ? 'selected' : ''}>🇪🇸 Elvira (Mujer - España)</option>
+                        <option value="es-AR-TomasNeural" ${biz.tts_voice === 'es-AR-TomasNeural' ? 'selected' : ''}>🇦🇷 Tomás (Hombre - Argentina)</option>
+                        <option value="es-AR-ElenaNeural" ${biz.tts_voice === 'es-AR-ElenaNeural' ? 'selected' : ''}>🇦🇷 Elena (Mujer - Argentina)</option>
+                    </select>
+                </div>
+            </div>
+
+            <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
             
             <div class="form-group">
                 <label>🤖 Menú Interactivo (Opciones y Respuestas)</label>
@@ -763,7 +788,7 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
              return res.status(403).send('No tienes permiso');
         }
 
-        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password } = req.body;
+        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password, tts_enabled, tts_voice } = req.body;
         
         let menuJson = {};
         let respJson = {};
@@ -782,6 +807,8 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             website,
             welcome_message,
             access_password,
+            tts_enabled: tts_enabled === 'on',
+            tts_voice,
             menu_options: menuJson,
             responses: respJson,
             updated_at: new Date()
@@ -806,6 +833,37 @@ app.post('/api/leads', async (req, res) => {
         res.status(201).json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
+    }
+});
+
+app.get('/dashboard/leads/export', authMiddleware, async (req, res) => {
+    try {
+        let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
+
+        // Filter if client
+        if (req.user.role === 'client') {
+            const { data: myBiz } = await supabase.from('businesses').select('business_name').eq('id', req.user.bizId).single();
+            if (myBiz) leadsQuery = leadsQuery.eq('business_name', myBiz.business_name || '');
+        }
+
+        const { data: leads } = await leadsQuery;
+        
+        if (!leads || leads.length === 0) return res.send('No hay leads para exportar');
+
+        // CSV Header
+        let csv = 'Fecha,Negocio,Nombre,Whatsapp,Email\n';
+        
+        // CSV Rows
+        leads.forEach(l => {
+            const date = new Date(l.created_at).toLocaleDateString();
+            csv += `"${date}","${l.business_name}","${l.contact_name}","${l.contact_number}","${l.contact_email || ''}"\n`;
+        });
+
+        res.setHeader('Content-Type', 'text/csv');
+        res.setHeader('Content-Disposition', 'attachment; filename=leads_plusbot.csv');
+        res.status(200).send(csv);
+    } catch (e) {
+        res.status(500).send('Error exportando: ' + e.message);
     }
 });
 

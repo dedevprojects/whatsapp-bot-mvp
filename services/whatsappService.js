@@ -129,12 +129,18 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                     '';
                 
                 const audioMsg = msg.message?.audioMessage;
-                let audioData = null;
+                const imageMsg = msg.message?.imageMessage;
+                const documentMsg = msg.message?.documentMessage || msg.message?.documentWithCaptionMessage?.message?.documentMessage;
                 
-                if (audioMsg) {
+                let mediaData = null;
+                let mimeType = null;
+                
+                if (audioMsg || imageMsg || documentMsg) {
                     try {
-                        logger.info({ msgId: msg.key.id }, 'Descargando mensaje de voz para procesar...');
-                        audioData = await downloadMediaMessage(
+                        const type = audioMsg ? 'audio' : (imageMsg ? 'image' : 'document');
+                        logger.info({ msgId: msg.key.id, type }, `Descargando ${type} para procesar...`);
+                        
+                        mediaData = await downloadMediaMessage(
                             msg,
                             'buffer',
                             {},
@@ -143,23 +149,27 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                                 reuploadRequest: sock.updateMediaMessage 
                             }
                         );
-                        logger.debug({ size: audioData?.length }, 'Audio descargado con éxito');
+                        mimeType = audioMsg?.mimetype || imageMsg?.mimetype || documentMsg?.mimetype;
+                        logger.debug({ size: mediaData?.length, mimeType }, 'Media descargado con éxito');
                     } catch (err) {
-                        logger.error({ err, msgId: msg.key.id }, 'Error al descargar audio');
+                        logger.error({ err, msgId: msg.key.id }, 'Error al descargar media');
                     }
                 }
 
-                // Only process if it has text, audio, or is from us (human intervention detection)
-                if (!text && !audioData && !msg.key.fromMe) continue;
+                // If it's a caption in an image/document, use it as text
+                const finalContextText = text || imageMsg?.caption || documentMsg?.caption || '';
+
+                // Only process if it has text, media, or is from us (human intervention detection)
+                if (!finalContextText && !mediaData && !msg.key.fromMe) continue;
 
                 const recipientJid = sock.user?.id || '';
 
                 await processMessage({
                     senderJid: remoteJid,
                     recipientJid,
-                    text: text || '',
-                    audioBuffer: audioData,
-                    mimeType: audioMsg?.mimetype || 'audio/ogg',
+                    text: finalContextText,
+                    mediaBuffer: mediaData,
+                    mimeType: mimeType,
                     sendReply: (jid, replyText) => sendMessage(sock, jid, replyText),
                     fromMe: !!msg.key.fromMe
                 });
@@ -173,11 +183,22 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
 }
 
 /**
- * Sends a plain-text message via a given socket.
+ * Sends a message via a given socket. Supports text and audio.
  */
-async function sendMessage(sock, jid, text) {
+async function sendMessage(sock, jid, content, options = {}) {
     if (!sock) throw new Error('No socket available');
-    await sock.sendMessage(jid, { text });
+    
+    if (Buffer.isBuffer(content)) {
+        // Send as Voice Note (PTT)
+        await sock.sendMessage(jid, { 
+            audio: content, 
+            mimetype: options.mimetype || 'audio/mp4', // Baileys works well with mp4/mpeg for voice notes
+            ptt: true 
+        });
+    } else {
+        // Send as text
+        await sock.sendMessage(jid, { text: content });
+    }
 }
 
 /**

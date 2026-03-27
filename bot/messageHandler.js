@@ -31,7 +31,7 @@ const UNKNOWN_RESPONSE = 'Por favor elegí una opción del menú.';
  * @param {object} business   - Row from the `businesses` table
  * @returns {Promise<string[]>}        - Array of messages to send in sequence
  */
-async function handleMessage({ senderJid, text, business, fromMe = false, history = [], audioBuffer = null, mimeType = null }) {
+async function handleMessage({ senderJid, text, business, fromMe = false, history = [], mediaBuffer = null, mimeType = null }) {
     const session = sessions.get(senderJid) || { welcomed: false, lastHumanInteraction: 0 };
 
     // ─── Human Intervention Detection ─────────────────────────────────────────
@@ -57,8 +57,8 @@ async function handleMessage({ senderJid, text, business, fromMe = false, histor
             normalizedText
         );
 
-    // If it's a greeting and NOT an audio, show the menu
-    if (isGreeting && !audioBuffer) {
+    // If it's a greeting and NOT a media message, show the menu
+    if (isGreeting && !mediaBuffer) {
         sessions.set(senderJid, { welcomed: true });
 
         const menuText = buildMenu(business.menu_options);
@@ -75,14 +75,14 @@ async function handleMessage({ senderJid, text, business, fromMe = false, histor
         return [business.responses[normalizedText]];
     }
 
-    // ─── Gemini AI Fallback (Handles Text AND Audio) ──────────────────────────
-    logger.debug({ senderJid, hasAudio: !!audioBuffer }, 'Calling Gemini AI');
+    // ─── Gemini AI Fallback (Multimodal) ──────────────────────────────────────
+    logger.debug({ senderJid, hasMedia: !!mediaBuffer }, 'Calling Gemini AI');
     
-    // Pass history and audio to AI for contextual responses
-    const aiResponse = await getChatResponse({ text, business, history, audioBuffer, mimeType });
+    // Pass history and media to AI for contextual responses
+    const aiResponse = await getChatResponse({ text, business, history, mediaBuffer, mimeType });
     
     if (aiResponse) {
-        // Mark as welcomed if the AI successfully handled a voice/text request
+        // Mark as welcomed if the AI successfully handled a media/text request
         if (!session.welcomed) sessions.set(senderJid, { welcomed: true });
         return [aiResponse];
     }

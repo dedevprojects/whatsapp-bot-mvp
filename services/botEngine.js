@@ -9,6 +9,7 @@
 
 const supabase = require('../config/supabase');
 const { handleMessage } = require('../bot/messageHandler');
+const { generateTTS } = require('./tts');
 const logger = require('../utils/logger');
 
 /**
@@ -110,7 +111,7 @@ function invalidateCache(whatsappNumber) {
  * @param {Function} params.sendReply    - Async function(jid, text) provided by whatsappService
  * @param {boolean} params.fromMe        - True if the message was sent FROM the bot itself
  */
-async function processMessage({ senderJid, recipientJid, text, audioBuffer = null, mimeType = null, sendReply, fromMe = false }) {
+async function processMessage({ senderJid, recipientJid, text, mediaBuffer = null, mimeType = null, sendReply, fromMe = false }) {
     // Convert Baileys JID (e.g. "5491112345678:1@s.whatsapp.net") to E.164
     const rawNumber = recipientJid.split(':')[0].split('@')[0];
     const whatsappNumber = `+${rawNumber}`;
@@ -123,8 +124,8 @@ async function processMessage({ senderJid, recipientJid, text, audioBuffer = nul
 
     // 1. Log inbound message (fire and forget)
     if (!fromMe) {
-        // Log "audio" if text is missing but audio is present
-        const logText = text || (audioBuffer ? "[Audio Message]" : "");
+        // Log "media" if text is missing but media is present
+        const logText = text || (mediaBuffer ? `[Media: ${mimeType}]` : "");
         logMessage(business.id, senderJid, logText, 'inbound');
     }
 
@@ -132,11 +133,28 @@ async function processMessage({ senderJid, recipientJid, text, audioBuffer = nul
     const history = await getRecentHistory(business.id, senderJid);
 
     // 3. Handle message with context
-    const replies = await handleMessage({ senderJid, text, business, fromMe, history, audioBuffer, mimeType });
+    const replies = await handleMessage({ senderJid, text, business, fromMe, history, mediaBuffer, mimeType });
 
     for (const reply of replies) {
+        // Send the text reply first
         await sendReply(senderJid, reply);
         logger.info({ senderJid, business: business.business_name }, 'Reply sent');
+        
+        // --- TTS Voice Reply (Zero Cost) ---
+        // If TTS is enabled for the business, also send the audio
+        if (business.tts_enabled) {
+            try {
+                const voice = business.tts_voice || 'es-MX-JorgeNeural';
+                const audioBuffer = await generateTTS(reply, voice);
+                
+                if (audioBuffer) {
+                    await sendReply(senderJid, audioBuffer, { mimetype: 'audio/mp4' }); // sendReply handles buffers as audio
+                    logger.info({ senderJid, business: business.business_name }, 'TTS Reply sent');
+                }
+            } catch (err) {
+                logger.error({ err }, 'Failed to send TTS reply');
+            }
+        }
         
         // Log outbound message (fire and forget)
         logMessage(business.id, senderJid, reply, 'outbound');
