@@ -14,6 +14,9 @@ create table if not exists businesses (
   menu_options     jsonb       not null default '{}',
   responses        jsonb       not null default '{}',
   active           boolean     not null default true,
+  address          text,
+  website          text,
+  knowledge_base   text,             -- Detailed text for AI context (Bio, FAQ, etc.)
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
 );
@@ -61,7 +64,10 @@ insert into businesses (
   whatsapp_number,
   welcome_message,
   menu_options,
-  responses
+  responses,
+  address,
+  website,
+  knowledge_base
 ) values (
   'Restaurante Roma',
   'Un restaurante italiano tradicional que sirve pastas caseras y pizzas al horno de leña.',
@@ -78,7 +84,10 @@ insert into businesses (
     "2": "¡Con gusto! Decime el día, hora y cantidad de personas para la reserva.",
     "3": "Abrimos de lunes a domingo de 12:00 a 23:00 hs 🕛",
     "4": "Estamos en Av. Siempre Viva 123, Ciudad 📍"
-  }'
+  }',
+  'Av. Siempre Viva 123, Ciudad CP 1234',
+  'https://restauranteroma.com',
+  'Somos un restaurante italiano con más de 20 años de experiencia. Nuestra especialidad es la Lasaña Romana y el Tiramisú casero. No cobramos derecho de cubierto. Tenemos opciones sin TACC. Aceptamos todas las tarjetas.'
 ) on conflict (whatsapp_number) do nothing;
 
 -- ============================================================

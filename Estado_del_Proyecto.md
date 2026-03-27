@@ -15,6 +15,10 @@
     *   Código sincronizado en **GitHub**.
     *   Despliegue operativo en **Render** ([https://whatsapp-bot-universal.onrender.com/](https://whatsapp-bot-universal.onrender.com/)).
     *   Auto-ping habilitado para evitar tiempos de inactividad.
+18. **Contexto por Negocio Dinámico**:
+    *   Base de conocimientos integrada en el prompt de Gemini.
+    *   Nuevos campos en DB: Dirección, Web y Knowledge Base (FAQ/Stock/Precios).
+    *   Editor de contexto funcional en el Dashboard.
 
 ## 🛠️ Tecnologías Listas
 - **IA**: Google Gemini Pro (Respuestas inteligentes con contexto).
@@ -27,5 +31,5 @@
 - **Conexión**: Restablecida usando archivos locales (22:37 hs config) para máxima estabilidad.
 - **Modelo IA**: gemini-2.5-flash (compatible con la cuenta actual).
 
-**🎯 Próximo Objetivo (Mañana):**
-Implementar la **Base de Conocimientos Dinámica** por negocio, para que cada bot pueda responder con información ultra-específica de su cliente (precios, horarios, stock, etc). 🚀
+**🎯 Próximo Objetivo:**
+Optimizar la gestión de **Menu de Opciones** desde el dashboard para que el usuario pueda configurar el flujo del bot sin tocar código. 🚀

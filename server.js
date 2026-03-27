@@ -449,6 +449,7 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
                     <td><span style="color:${statusColor}; font-weight:bold;">● ${statusLabel}</span></td>
                     <td>
                         <a href="/qr/${biz.whatsapp_number}" target="_blank" class="btn-s">QR</a>
+                        <a href="/dashboard/edit/${biz.id}" class="btn-s" style="background:#3498db;">EDITAR</a>
                         <button onclick="reconnect('${biz.whatsapp_number}')" class="btn-s" style="background:#eee; color:#333;">REINICIAR</button>
                     </td>
                 </tr>`;
@@ -521,6 +522,181 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
 </body>
 </html>`);
     } catch (e) { res.status(500).send('Error'); }
+});
+
+app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data: biz } = await supabase.from('businesses').select('*').eq('id', id).single();
+        if (!biz) return res.redirect('/dashboard');
+
+        res.send(`
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Configurar Plusbot | ${biz.business_name}</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <style>
+        body { font-family: 'Inter', sans-serif; background: #F4F7F6; margin: 0; padding: 0; }
+        header { background: #002D1E; color: white; padding: 1rem 5%; display: flex; justify-content: space-between; align-items: center; }
+        .logo-box { display: flex; align-items: center; gap: 10px; font-family: 'Outfit'; font-size: 1.4rem; }
+        .logo-box img { width: 30px; border-radius: 6px; }
+        .container { max-width: 900px; margin: 3rem auto; background: white; border-radius: 30px; padding: 3rem; box-shadow: 0 20px 50px rgba(0,0,0,0.05); }
+        h1 { font-family: 'Outfit'; color: #00593B; margin-top: 0; }
+        .form-group { margin-bottom: 2rem; }
+        label { display: block; font-weight: 700; margin-bottom: 0.5rem; color: #333; }
+        input, textarea { width: 100%; padding: 15px; border-radius: 12px; border: 2px solid #EEE; font-family: inherit; font-size: 1rem; box-sizing: border-box; }
+        textarea { height: 120px; }
+        input:focus, textarea:focus { border-color: #25D366; outline: none; }
+        .hint { font-size: 0.85rem; color: #999; margin-top: 0.4rem; }
+        .btn-save { background: #25D366; color: white; padding: 15px 40px; border-radius: 15px; border: none; font-weight: 800; cursor: pointer; transition: 0.3s; }
+        .btn-save:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(37,211,102,0.3); }
+        .back { text-decoration: none; color: #999; display: inline-block; margin-bottom: 2rem; }
+    </style>
+</head>
+<body>
+    <header>
+        <div class="logo-box"><img src="/public/plusbot_logo.png"> PLUSBOT</div>
+        <a href="/dashboard" style="color:white; text-decoration:none; opacity:0.8;">← Volver al Panel</a>
+    </header>
+    <div class="container">
+        <h1>Configurar Contexto: ${biz.business_name}</h1>
+        <form action="/dashboard/edit/${biz.id}" method="POST">
+            <div class="form-group">
+                <label>Nombre del Negocio</label>
+                <input type="text" name="business_name" value="${biz.business_name}" required>
+            </div>
+            <div class="grid" style="display:grid; grid-template-columns: 1fr 1fr; gap: 2rem;">
+                 <div class="form-group">
+                    <label>Dirección Física</label>
+                    <input type="text" name="address" value="${biz.address || ''}" placeholder="Ej: Av. Principal 123, Ciudad">
+                 </div>
+                 <div class="form-group">
+                    <label>Sitio Web</label>
+                    <input type="url" name="website" value="${biz.website || ''}" placeholder="https://miweb.com">
+                 </div>
+            </div>
+            <div class="form-group">
+                <label>Descripción General (Contexto IA)</label>
+                <textarea name="description">${biz.description || ''}</textarea>
+                <p class="hint">Define quién eres y qué haces. La IA lo usará para presentarse.</p>
+            </div>
+            <div class="form-group">
+                <label>Base de Conocimiento / FAQ</label>
+                <textarea name="knowledge_base" style="height: 200px;">${biz.knowledge_base || ''}</textarea>
+                <p class="hint">Información ultra-específica: Precios, políticas de envío, reembolsos, stock detallado, etc. 🤖</p>
+            </div>
+            <div class="form-group">
+                <label>Mensaje de Bienvenida</label>
+                <input type="text" name="welcome_message" value="${biz.welcome_message}">
+            </div>
+
+            <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
+            
+            <div class="form-group">
+                <label>🤖 Menú Interactivo (Opciones y Respuestas)</label>
+                <p class="hint">Define las opciones que el usuario verá al llegar (1, 2, 3...) y qué responderá el bot automáticamente.</p>
+                
+                <div id="menu-container" style="margin-top: 2rem;">
+                    <!-- Se carga dinámicamente -->
+                </div>
+                
+                <button type="button" onclick="addOption()" style="background:#f1f1f1; border: 1px dashed #ccc; padding: 10px 20px; border-radius: 10px; cursor: pointer; font-weight: 600; margin-top: 1rem;">+ Añadir Opción</button>
+            </div>
+
+            <input type="hidden" name="menu_options" id="menu_options_input">
+            <input type="hidden" name="responses" id="responses_input">
+
+            <div style="margin-top: 4rem; text-align: right;">
+                <button type="submit" class="btn-save" onclick="prepareData()">Guardar Configuración Completa 💾</button>
+            </div>
+        </form>
+    </div>
+
+    <script>
+        const initialMenu = ${JSON.stringify(biz.menu_options || {})};
+        const initialResp = ${JSON.stringify(biz.responses || {})};
+        const container = document.getElementById('menu-container');
+
+        function createOptionRow(key, label, resp) {
+            const div = document.createElement('div');
+            div.className = 'menu-row';
+            div.style = 'display: grid; grid-template-columns: 60px 1fr 2fr 50px; gap: 1rem; margin-bottom: 1rem; align-items: start; background: #f9f9f9; padding: 1rem; border-radius: 15px;';
+            div.innerHTML = \`
+                <div><label small>#</label><input type="text" class="m-key" value="\${key}" style="padding:8px; text-align:center;"></div>
+                <div><label small>Etiqueta</label><input type="text" class="m-label" value="\${label}" placeholder="Ej: Ver Precios" style="padding:8px;"></div>
+                <div><label small>Respuesta Automática</label><textarea class="m-resp" style="padding:8px; height:60px; font-size:0.9rem;">\${resp}</textarea></div>
+                <div style="padding-top:25px;"><button type="button" onclick="this.parentElement.parentElement.remove()" style="background:#ff6b6b; color:white; border:none; width: 30px; height:30px; border-radius:50%; cursor:pointer;">×</button></div>
+            \`;
+            container.appendChild(div);
+        }
+
+        // Cargar datos actuales
+        Object.keys(initialMenu).sort((a,b) => a-b).forEach(k => {
+            createOptionRow(k, initialMenu[k], initialResp[k] || '');
+        });
+
+        function addOption() {
+            const nextKey = (container.querySelectorAll('.menu-row').length + 1).toString();
+            createOptionRow(nextKey, '', '');
+        }
+
+        function prepareData() {
+            const menu = {};
+            const resp = {};
+            document.querySelectorAll('.menu-row').forEach(row => {
+                const key = row.querySelector('.m-key').value.trim();
+                const label = row.querySelector('.m-label').value.trim();
+                const response = row.querySelector('.m-resp').value.trim();
+                if (key && label) {
+                    menu[key] = label;
+                    resp[key] = response;
+                }
+            });
+            document.getElementById('menu_options_input').value = JSON.stringify(menu);
+            document.getElementById('responses_input').value = JSON.stringify(resp);
+        }
+    </script>
+</body>
+</html>
+        `);
+    } catch (e) { res.status(500).send('Error loading edit page'); }
+});
+
+app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses } = req.body;
+        
+        let menuJson = {};
+        let respJson = {};
+        try {
+            if (menu_options) menuJson = JSON.parse(menu_options);
+            if (responses) respJson = JSON.parse(responses);
+        } catch (e) { logger.error('Error parsing menu JSON', e); }
+
+        const { data: oldBiz } = await supabase.from('businesses').select('whatsapp_number').eq('id', id).single();
+
+        const { error } = await supabase.from('businesses').update({
+            business_name,
+            description,
+            knowledge_base,
+            address,
+            website,
+            welcome_message,
+            menu_options: menuJson,
+            responses: respJson,
+            updated_at: new Date()
+        }).eq('id', id);
+
+        if (error) throw error;
+
+        // Invalidate cache in botEngine so changes are picked up immediately
+        const { invalidateCache } = require('./services/botEngine');
+        if (oldBiz) invalidateCache(oldBiz.whatsapp_number);
+
+        res.send(`<script>alert('¡Configuración actualizada! 🚀'); window.location.href='/dashboard';</script>`);
+    } catch (e) { res.status(500).send('Error updating: ' + e.message); }
 });
 
 
