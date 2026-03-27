@@ -15,6 +15,7 @@ const qrcode = require('qrcode-terminal');
 const { processMessage } = require('./botEngine');
 const logger = require('../utils/logger');
 const { useSupabaseAuthState } = require('../utils/supabaseAuth');
+const supabase = require('../config/supabase');
 
 
 // Map<whatsapp_number, WASocket>
@@ -37,10 +38,11 @@ if (!fs.existsSync(SESSIONS_DIR)) {
  * @param {string} [businessName] - Human-readable label for logs
  */
 async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
-    const sessionPath = path.join(SESSIONS_DIR, whatsappNumber.replace(/[^a-zA-Z0-9]/g, ''));
-    const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
+    // const sessionPath = path.join(SESSIONS_DIR, whatsappNumber.replace(/[^a-zA-Z0-9]/g, ''));
+    // const { state, saveCreds } = await useMultiFileAuthState(sessionPath);
     
-    // const { state, saveCreds } = await useSupabaseAuthState(whatsappNumber); // DISABLED TO FIX CONNECTION TIMEOUT 
+    // Using Supabase instead of local files for persistence
+    const { state, saveCreds } = await useSupabaseAuthState(whatsappNumber);
 
     
     let version;
@@ -102,6 +104,9 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
             } else {
                 logger.error({ businessName, whatsappNumber }, 'Logged out — session cleared');
                 connections.delete(whatsappNumber);
+                
+                // Clear state from Supabase too
+                await supabase.from('whatsapp_sessions').delete().eq('whatsapp_number', whatsappNumber);
             }
         }
     });

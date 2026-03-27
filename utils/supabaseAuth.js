@@ -41,24 +41,32 @@ async function useSupabaseAuthState(whatsappNumber) {
         creds = initAuthCreds();
     }
 
-    // 2. Saver helper
+    // 2. Debounced Saver helper
+    let timeout;
     const saveSession = async () => {
-        try {
-            // Stringify with replacer to mark Buffers
-            const jsonStr = JSON.stringify({ creds, keys }, BufferJSON.replacer);
-            // Parse back to object so Supabase receives a JSONB-compatible object
-            const sessionToSave = JSON.parse(jsonStr);
-            
-            await supabase
-                .from('whatsapp_sessions')
-                .upsert({
-                    whatsapp_number: whatsappNumber,
-                    data: sessionToSave,
-                    updated_at: new Date()
-                }, { onConflict: 'whatsapp_number' });
-        } catch (err) {
-            logger.error({ err, whatsappNumber }, 'Error saving session to Supabase');
-        }
+        if (timeout) clearTimeout(timeout);
+        
+        timeout = setTimeout(async () => {
+            try {
+                // Stringify with replacer to mark Buffers
+                const jsonStr = JSON.stringify({ creds, keys }, BufferJSON.replacer);
+                // Parse back to object so Supabase receives a JSONB-compatible object
+                const sessionToSave = JSON.parse(jsonStr);
+                
+                const { error } = await supabase
+                    .from('whatsapp_sessions')
+                    .upsert({
+                        whatsapp_number: whatsappNumber,
+                        data: sessionToSave,
+                        updated_at: new Date()
+                    }, { onConflict: 'whatsapp_number' });
+                
+                if (error) throw error;
+                // logger.debug({ whatsappNumber }, 'Session saved to Supabase (debounced)');
+            } catch (err) {
+                logger.error({ err, whatsappNumber }, 'Error saving session to Supabase during debounced save');
+            }
+        }, 3000); // 3 second debounce to avoid hitting Supabase too hard
     };
 
     return {

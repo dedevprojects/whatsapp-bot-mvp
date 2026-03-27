@@ -15,28 +15,26 @@
     *   Código sincronizado en **GitHub**.
     *   Despliegue operativo en **Render** ([https://whatsapp-bot-universal.onrender.com/](https://whatsapp-bot-universal.onrender.com/)).
     *   Auto-ping habilitado para evitar tiempos de inactividad.
-18. **Contexto por Negocio Dinámico**:
-    *   Base de conocimientos integrada en el prompt de Gemini.
-    *   Nuevos campos en DB: Dirección, Web y Knowledge Base (FAQ/Stock/Precios).
-    *   Editor de contexto funcional en el Dashboard.
-19. **Gestión de Menús Dinámica**:
-    *   Editor interactivo de Opciones y Respuestas Automáticas.
-    *   Soporte para múltiples niveles de respuesta JSON.
-20. **Multi-Tenancy (Multi-Cliente)**:
-    *   Login por negocio con `access_password`.
-    *   Filtro de privacidad: Clientes solo ven sus datos y leads.
-    *   Dashboard de Admin total para ver todos los bots.
+21. **Persistencia en Supabase v2 (Estable)**:
+    *   Migración de sesiones locales a Supabase completada.
+    *   Implementación de **Debouncing (3s)** para evitar bloqueos por actualizaciones frecuentes.
+    *   Manejo robusto de Buffers mediante `BufferJSON`.
+22. **Landing Page v3.1 (Email Contact)**:
+    *   Inclusión de contacto directo vía email para mayor flexibilidad comercial.
+23. **Simplificación Contacto (Lead-to-Mail)**:
+    *   Automatización: El formulario de leads ahora abre el cliente de correo con datos pre-rellenados.
+    *   Integración: Gemini y la Landing Page ahora impulsan el contacto a `agenciagolweb@gmail.com`.
+    *   **Cero Tedio**: Solución sin configuración de servidores de correo.
 
 ## 🛠️ Tecnologías Listas
 - **IA**: Google Gemini Pro (Respuestas inteligentes con contexto).
-- **Base de Datos**: Supabase (Sesiones de WhatsApp y Leads persistentes).
-- **Core**: Baileys (@whiskeysockets/baileys).
+- **Base de Datos**: Supabase.
+- **Core**: Baileys.
 
 ---
-**Estado Final de la Sesión (Marzo 26):** **SESIÓN ESTABLE Y DISEÑO PULIDO** 🟢
-- **Plusbot v3.1**: Identidad Plusbot consolidada con diseño premium.
-- **Conexión**: Restablecida usando archivos locales (22:37 hs config) para máxima estabilidad.
-- **Modelo IA**: gemini-1.5-flash (Estable & High-Speed).
+**Estado Final de la Sesión (Marzo 27):** **PERSISTENCIA Y CONTACTO SIMPLIFICADO** 📧
+- **Plusbot v3.3**: Redirección inteligente a Email para cerrar ventas rápidamente.
+- **Bot Contextual**: Gemini entrenado para derivar leads al correo oficial.
 
 **🎯 Próximo Objetivo:**
-Migrar la **Persistencia de Sesiones de WhatsApp** de archivos locales a **Supabase (JSONB)** para asegurar que los bots no se desconecten al reiniciar el servidor en Render. 🚀
+Implementar el **Soporte de Mensajes de Voz** (Voz a Texto) usando Gemini. 🎙️

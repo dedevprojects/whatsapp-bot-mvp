@@ -155,8 +155,9 @@ app.get('/', (req, res) => {
             <img src="/public/plusbot_logo.png" alt="Plusbot Logo" class="logo-img">
             <div class="logo">PLUS<span>BOT</span></div>
         </div>
-        <div style="display:flex; gap:10px;">
-            <a href="/login" class="btn-panel">Acceso Panel 💬</a>
+        <div style="display:flex; gap:15px; align-items:center;">
+            <a href="mailto:agenciagolweb@gmail.com" class="btn-panel" style="background:transparent; border:1px solid rgba(255,255,255,0.4);">📧 Email</a>
+            <a href="/login" class="btn-panel" style="background:var(--wa-bright); border:none; color:#002D1E;">Acceso 💬</a>
         </div>
     </div>
 
@@ -229,11 +230,16 @@ app.get('/', (req, res) => {
                 <button type="submit" class="btn-cta" style="width:100%; border-radius:18px;" id="btnP">¡Quiero Mi Plusbot! 🤖</button>
             </form>
             <div id="st" style="margin-top:2rem; font-weight:700; font-size:1.2rem;"></div>
+            <p style="margin-top: 3rem; color: #777; font-size: 0.95rem; border-top: 1px solid #eee; padding-top: 2rem;">
+                ¿Prefieres conversar por correo? <br>
+                <a href="mailto:agenciagolweb@gmail.com?subject=Consulta sobre Plusbot" style="color: var(--wa-deep-green); text-decoration: none; font-weight: 700; font-size: 1.1rem;">📧 agenciagolweb@gmail.com</a>
+            </p>
         </div>
     </section>
 
     <footer>
         <p>&copy; 2026 Plusbot AI Global. Hecho con ❤️ para potenciar negocios.</p>
+        <p style="margin-top:10px; font-size:0.85rem; opacity:0.5;">Soporte: agenciagolweb@gmail.com</p>
     </footer>
 
     <script>
@@ -322,9 +328,18 @@ app.get('/', (req, res) => {
             const data=Object.fromEntries(new FormData(e.target));
             try {
                 const r=await fetch('/api/leads',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify(data)});
-                if(r.ok) { st.style.color='#2ecc71'; st.innerText='¡Perfecto! ✅ Un experto en Plusbot te escribirá por WhatsApp pronto.'; e.target.reset(); }
+                if(r.ok) { 
+                    st.style.color='#2ecc71'; 
+                    st.innerText='¡Listo! ✅ Guardamos tus datos. Abriendo tu correo para el contacto final...'; 
+                    const mailtoUrl = 'mailto:agenciagolweb@gmail.com?subject=Interés en Plusbot: ' + data.business_name + '&body=Hola! Mi nombre es ' + data.contact_name + ' de ' + data.business_name + '. Me gustaría activar mi Plusbot. Mi WhatsApp: ' + data.contact_number;
+                    setTimeout(() => { 
+                        window.location.href = mailtoUrl;
+                        st.innerText = '¡Perfecto! ✅ Si no se abrió tu correo, escribe a agenciagolweb@gmail.com';
+                    }, 2000);
+                    e.target.reset(); 
+                }
                 else throw new Error();
-            } catch(e) { st.style.color='#e74c3c'; st.innerText='⚠️ Error. Intenta de nuevo.'; }
+            } catch(e) { st.style.color='#e74c3c'; st.innerText='⚠️ Error al guardar. Por favor, escribe directamente a agenciagolweb@gmail.com'; }
             finally { btn.innerText='¡Quiero Mi Plusbot! 🤖'; btn.disabled=false; }
         };
     </script>
