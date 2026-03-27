@@ -16,6 +16,7 @@ create table if not exists businesses (
   active           boolean     not null default true,
   address          text,
   website          text,
+  access_password  text,             -- Individual password for the client to see only their bot
   knowledge_base   text,             -- Detailed text for AI context (Bio, FAQ, etc.)
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now()
@@ -67,6 +68,7 @@ insert into businesses (
   responses,
   address,
   website,
+  access_password,
   knowledge_base
 ) values (
   'Restaurante Roma',
@@ -87,7 +89,43 @@ insert into businesses (
   }',
   'Av. Siempre Viva 123, Ciudad CP 1234',
   'https://restauranteroma.com',
+  'roma123',
   'Somos un restaurante italiano con más de 20 años de experiencia. Nuestra especialidad es la Lasaña Romana y el Tiramisú casero. No cobramos derecho de cubierto. Tenemos opciones sin TACC. Aceptamos todas las tarjetas.'
+) on conflict (whatsapp_number) do nothing;
+
+-- Example record — Inmobiliaria Altos del Sur
+insert into businesses (
+  business_name,
+  description,
+  whatsapp_number,
+  welcome_message,
+  menu_options,
+  responses,
+  address,
+  website,
+  access_password,
+  knowledge_base
+) values (
+  'Altos del Sur 🏘️ (Inmobiliaria)',
+  'Líderes en ventas y alquileres en la zona sur. Tasaciones profesionales y asesoramiento integral.',
+  '+5491100000004',
+  '¡Hola! 👋 Gracias por contactarte con Altos del Sur Inmobiliaria. ¿Cómo podemos ayudarte con tu propiedad hoy?',
+  '{
+    "1": "Propiedades en Venta",
+    "2": "Alquileres Disponibles",
+    "3": "Tasación Gratis",
+    "4": "Contacto Humano"
+  }',
+  '{
+    "1": "Contamos con una amplia cartera de casas y departamentos. Decime: ¿Qué zona te interesa?",
+    "2": "¡Genial! Buscas alquiler residencial o comercial?",
+    "3": "Con gusto. Decime la dirección de la propiedad para programar una visita de tasación.",
+    "4": "Te derivo con un asesor comercial en este momento. Aguarda un segundo."
+  }',
+  'Av. Belgrano 1200, Quilmes',
+  'https://altosdelsur.com.ar',
+  'altos77', 
+  'Somos una inmobiliaria con 15 años de trayectoria. Trabajamos en Quilmes, Berazategui y Bernal. Horario de atención: Lunes a Viernes de 9 a 18hs.'
 ) on conflict (whatsapp_number) do nothing;
 
 -- ============================================================

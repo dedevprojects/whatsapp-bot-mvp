@@ -19,7 +19,19 @@ app.use(cookieParser());
 app.use('/public', express.static(path.join(__dirname, 'public')));
 
 const authMiddleware = (req, res, next) => {
-    if (req.cookies.admin_session === 'authenticated') return next();
+    const session = req.cookies.admin_session;
+    if (!session) return res.redirect('/login');
+    
+    if (session === 'authenticated') {
+        req.user = { role: 'admin' };
+        return next();
+    }
+    
+    if (session.startsWith('biz_')) {
+        req.user = { role: 'client', bizId: session.replace('biz_', '') };
+        return next();
+    }
+    
     res.redirect('/login');
 };
 
@@ -382,11 +394,30 @@ app.get('/login', (req, res) => {
 });
 
 
-app.post('/login', (req, res) => {
-    if (req.body.password === process.env.ADMIN_PASSWORD || req.body.password === 'admin123') {
+app.post('/login', async (req, res) => {
+    const { password } = req.body;
+    
+    // 1. Check Admin
+    if (password === process.env.ADMIN_PASSWORD || password === 'admin123') {
         res.cookie('admin_session', 'authenticated', { httpOnly: true });
         return res.redirect('/dashboard');
     }
+
+    // 2. Check individual business password
+    try {
+        const { data: biz } = await supabase
+            .from('businesses')
+            .select('id')
+            .eq('access_password', password)
+            .eq('active', true)
+            .maybeSingle();
+
+        if (biz) {
+            res.cookie('admin_session', 'biz_' + biz.id, { httpOnly: true });
+            return res.redirect('/dashboard');
+        }
+    } catch (e) { logger.error(e); }
+
     res.redirect('/login?error=1');
 });
 
@@ -435,8 +466,20 @@ app.get('/qr/:number', async (req, res) => {
 
 app.get('/dashboard', authMiddleware, async (req, res) => {
     try {
-        const { data: businesses } = await supabase.from('businesses').select('*').order('created_at', { ascending: false });
-        const { data: leads } = await supabase.from('leads').select('*').order('created_at', { ascending: false });
+        let bizQuery = supabase.from('businesses').select('*').order('created_at', { ascending: false });
+        let leadsQuery = supabase.from('leads').select('*').order('created_at', { ascending: false });
+
+        // Apply filters if client
+        if (req.user.role === 'client') {
+            bizQuery = bizQuery.eq('id', req.user.bizId);
+            // Optionally filter leads by business name if the lead table had business_id, 
+            // but for now it has business_name. We'll fetch the business name first.
+            const { data: myBiz } = await supabase.from('businesses').select('business_name').eq('id', req.user.bizId).single();
+            if (myBiz) leadsQuery = leadsQuery.eq('business_name', myBiz.business_name);
+        }
+
+        const { data: businesses } = await bizQuery;
+        const { data: leads } = await leadsQuery;
         const statuses = getStatus();
 
         const bizRows = (businesses || []).map(biz => {
@@ -527,6 +570,12 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
 app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
+
+        // Security check: clients can only edit their own business
+        if (req.user.role === 'client' && req.user.bizId !== id) {
+            return res.redirect('/dashboard');
+        }
+
         const { data: biz } = await supabase.from('businesses').select('*').eq('id', id).single();
         if (!biz) return res.redirect('/dashboard');
 
@@ -589,6 +638,12 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             <div class="form-group">
                 <label>Mensaje de Bienvenida</label>
                 <input type="text" name="welcome_message" value="${biz.welcome_message}">
+            </div>
+
+            <div class="form-group">
+                <label>Contraseña de Acceso (Cliente)</label>
+                <input type="text" name="access_password" value="${biz.access_password || ''}" placeholder="Crea una contraseña para tu cliente">
+                <p class="hint">El cliente usará esta contraseña para ver solo su panel.</p>
             </div>
 
             <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
@@ -666,7 +721,13 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
 app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses } = req.body;
+
+        // Security check
+        if (req.user.role === 'client' && req.user.bizId !== id) {
+             return res.status(403).send('No tienes permiso');
+        }
+
+        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password } = req.body;
         
         let menuJson = {};
         let respJson = {};
@@ -684,6 +745,7 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             address,
             website,
             welcome_message,
+            access_password,
             menu_options: menuJson,
             responses: respJson,
             updated_at: new Date()
