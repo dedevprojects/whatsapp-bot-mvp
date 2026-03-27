@@ -88,10 +88,11 @@ Pautas:
         
         // Add Media if present (MULTIMODAL support: Audio, Image, PDF)
         if (mediaBuffer) {
+            const cleanMimeType = (mimeType || 'image/jpeg').split(';')[0].trim();
             userParts.push({
                 inlineData: {
                     data: mediaBuffer.toString('base64'),
-                    mimeType: mimeType || 'image/jpeg'
+                    mimeType: cleanMimeType
                 }
             });
         }
