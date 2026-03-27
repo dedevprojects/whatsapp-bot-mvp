@@ -139,13 +139,33 @@ app.get('/', (req, res) => {
         footer { padding: 80px 8%; text-align: center; color: #888; background: #f9f9f9; font-size: 1.1rem; border-top: 1px solid #eee; }
 
         @media (max-width: 1024px) {
-            .hero { padding-top: 180px; text-align: center; flex-direction: column; height: auto; }
-            .hero-text h1 { font-size: 3.5rem; min-height: 8rem; }
+            .hero { padding-top: 180px; text-align: center; flex-direction: column; height: auto; border-radius: 0 0 60px 60px; }
+            .hero-text h1 { font-size: 4rem; min-height: auto; margin-bottom: 1.5rem; }
+            .hero-text p { font-size: 1.2rem; margin-bottom: 3rem; }
             .hero-img { display: none; }
             .grid-3 { grid-template-columns: 1fr; }
-            .highlight-box { flex-direction: column; text-align: center; padding: 60px 40px; }
-            .h-content h2 { font-size: 3.5rem; min-height: 8rem; }
+            .highlight-box { flex-direction: column; text-align: center; padding: 60px 30px; border-radius: 40px; }
+            .h-content h2 { font-size: 3rem; min-height: auto; }
             .h-icon { display:none; }
+            .section { padding: 100px 8%; }
+            h2 { font-size: 2.8rem; }
+            .footer-form { padding: 100px 5%; border-radius: 60px 60px 0 0; }
+            .form-container { padding: 3rem 1.5rem; border-radius: 30px; margin-top: 40px; }
+        }
+
+        @media (max-width: 600px) {
+            .nav { padding: 1.5rem 5%; }
+            .logo { font-size: 1.6rem; }
+            .logo-img { width: 35px; height: 35px; }
+            .btn-panel { padding: 0.6rem 1.2rem; font-size: 0.85rem; }
+            .hero-text h1 { font-size: 3rem; }
+            .hero-text p { font-size: 1.1rem; }
+            .btn-cta { padding: 1.1rem 2.5rem; font-size: 1rem; width: 100%; text-align: center; }
+            h2 { font-size: 2.2rem; }
+            .section-subtitle { font-size: 1.1rem; margin-bottom: 4rem; }
+            .card { padding: 3rem 2rem; border-radius: 30px; }
+            .h-content h2 { font-size: 2.4rem; }
+            .h-content p { font-size: 1.2rem; }
         }
     </style>
 </head>
