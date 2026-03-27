@@ -24,7 +24,7 @@ const tests = [
 
 async function runTests() {
     for (const { input, expected } of tests) {
-        const replies = await handleMessage('sender-jid', input, mockBusiness);
+        const replies = await handleMessage({ senderJid: 'sender-jid', text: input, business: mockBusiness });
         
         if (replies.length === 0) {
             console.log(`Test [${input}]: ❌ NO REPLY`);

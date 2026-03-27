@@ -61,7 +61,7 @@ Pautas:
 
         // Initialize model with system instruction (Optimized for Gemini 1.5 Pro/Flash)
         const model = ai.getGenerativeModel({ 
-            model: "gemini-1.5-flash",
+            model: "gemini-flash-latest",
             systemInstruction: systemInstruction 
         });
 
@@ -83,26 +83,40 @@ Pautas:
             }
         }
 
-        // Add the current user message
-        const userParts = [{ text: text || "Analiza el archivo adjunto o continúa la conversación." }];
-        
-        // Add Media if present (MULTIMODAL support: Audio, Image, PDF)
-        if (mediaBuffer) {
-            const cleanMimeType = (mimeType || 'image/jpeg').split(';')[0].trim();
-            userParts.push({
-                inlineData: {
-                    data: mediaBuffer.toString('base64'),
-                    mimeType: cleanMimeType
-                }
+        const currentText = text || "Analiza el archivo adjunto o continúa la conversación.";
+        const lastInHistory = contents[contents.length - 1];
+
+        // Ensure strictly alternating roles. If history ends with 'user', append to it.
+        if (lastInHistory && lastInHistory.role === 'user') {
+            lastInHistory.parts[0].text += `\n\n[Mensaje Actual]: ${currentText}`;
+            if (mediaBuffer) {
+                const cleanMimeType = (mimeType || 'image/jpeg').split(';')[0].trim();
+                lastInHistory.parts.push({
+                    inlineData: {
+                        data: mediaBuffer.toString('base64'),
+                        mimeType: cleanMimeType
+                    }
+                });
+            }
+        } else {
+            // Otherwise, add a new 'user' message
+            const userParts = [{ text: currentText }];
+            if (mediaBuffer) {
+                const cleanMimeType = (mimeType || 'image/jpeg').split(';')[0].trim();
+                userParts.push({
+                    inlineData: {
+                        data: mediaBuffer.toString('base64'),
+                        mimeType: cleanMimeType
+                    }
+                });
+            }
+            contents.push({
+                role: 'user',
+                parts: userParts
             });
         }
 
-        contents.push({
-            role: 'user',
-            parts: userParts
-        });
-
-        // Ensure strictly alternating roles and starting with 'user'
+        // Final safety check: if still empty (shouldn't happen) or starting with model
         while (contents.length > 0 && contents[0].role === 'model') {
             contents.shift();
         }

@@ -1,6 +1,6 @@
 'use strict';
 
-const { EdgeTTS } = require('edge-tts-universal');
+const { Communicate } = require('edge-tts-universal');
 const logger = require('../utils/logger');
 
 /**
@@ -14,14 +14,17 @@ async function generateTTS(text, voice = 'es-MX-JorgeNeural') {
     if (!text) return null;
 
     try {
-        const tts = new EdgeTTS();
+        const communicate = new Communicate(text, { voice });
         
-        logger.info({ voice, textLength: text.length }, 'Generating TTS audio...');
+        const chunks = [];
+        for await (const chunk of communicate.stream()) {
+            if (chunk.type === 'audio' && chunk.data) {
+                chunks.push(chunk.data);
+            }
+        }
         
-        // EdgeTTS returns a buffer when we call it
-        const buffer = await tts.getAudioBuffer(text, voice);
-        
-        logger.debug({ bufferSize: buffer?.length }, 'TTS generated successfully');
+        const buffer = Buffer.concat(chunks);
+        logger.debug({ bufferSize: buffer.length }, 'TTS generated successfully');
         return buffer;
     } catch (error) {
         logger.error({ error: error.message }, 'Error in TTS generation');
