@@ -148,7 +148,7 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
                 const audioBuffer = await generateTTS(reply, voice);
                 
                 if (audioBuffer) {
-                    await sendReply(senderJid, audioBuffer, { mimetype: 'audio/mp4' }); // sendReply handles buffers as audio
+                    await sendReply(senderJid, audioBuffer, { mimetype: 'audio/mpeg' }); // MP3 format
                     logger.info({ senderJid, business: business.business_name }, 'TTS Reply sent');
                 }
             } catch (err) {
