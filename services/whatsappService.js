@@ -189,11 +189,10 @@ async function sendMessage(sock, jid, content, options = {}) {
     if (!sock) throw new Error('No socket available');
     
     if (Buffer.isBuffer(content)) {
-        // Send as Voice Note (PTT)
         await sock.sendMessage(jid, { 
             audio: content, 
-            mimetype: options.mimetype || 'audio/mp4', // Baileys works well with mp4/mpeg for voice notes
-            ptt: true 
+            mimetype: options.mimetype || 'audio/mp4',
+            ptt: options.ptt !== undefined ? options.ptt : true 
         });
     } else {
         // Send as text
