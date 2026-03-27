@@ -110,7 +110,7 @@ function invalidateCache(whatsappNumber) {
  * @param {Function} params.sendReply    - Async function(jid, text) provided by whatsappService
  * @param {boolean} params.fromMe        - True if the message was sent FROM the bot itself
  */
-async function processMessage({ senderJid, recipientJid, text, sendReply, fromMe = false }) {
+async function processMessage({ senderJid, recipientJid, text, audioBuffer = null, mimeType = null, sendReply, fromMe = false }) {
     // Convert Baileys JID (e.g. "5491112345678:1@s.whatsapp.net") to E.164
     const rawNumber = recipientJid.split(':')[0].split('@')[0];
     const whatsappNumber = `+${rawNumber}`;
@@ -123,14 +123,16 @@ async function processMessage({ senderJid, recipientJid, text, sendReply, fromMe
 
     // 1. Log inbound message (fire and forget)
     if (!fromMe) {
-        logMessage(business.id, senderJid, text, 'inbound');
+        // Log "audio" if text is missing but audio is present
+        const logText = text || (audioBuffer ? "[Audio Message]" : "");
+        logMessage(business.id, senderJid, logText, 'inbound');
     }
 
     // 2. Get recent history to provide context
     const history = await getRecentHistory(business.id, senderJid);
 
     // 3. Handle message with context
-    const replies = await handleMessage(senderJid, text, business, fromMe, history);
+    const replies = await handleMessage({ senderJid, text, business, fromMe, history, audioBuffer, mimeType });
 
     for (const reply of replies) {
         await sendReply(senderJid, reply);

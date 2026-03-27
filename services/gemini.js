@@ -20,12 +20,15 @@ function getGenAI() {
 /**
  * Generates a response using Google Gemini.
  * 
- * @param {string} prompt - The user message
- * @param {object} business - Business info to provide context to the AI
- * @param {Array<{role: string, text: string}>} history - Recent conversation history
+ * @param {object} params
+ * @param {string} params.text - The user message text
+ * @param {object} params.business - Business info to provide context to the AI
+ * @param {Array<{role: string, text: string}>} params.history - Recent conversation history
+ * @param {Buffer} params.audioBuffer - Optional audio data
+ * @param {string} params.mimeType - Optional audio mime type
  * @returns {Promise<string>}
  */
-async function getChatResponse(prompt, business, history = []) {
+async function getChatResponse({ text, business, history = [], audioBuffer = null, mimeType = null }) {
     const ai = getGenAI();
     if (!ai) {
         logger.warn('GEMINI_API_KEY not configured. Falling back to empty response.');
@@ -58,7 +61,7 @@ Pautas:
 - Tu respuesta debe ser natural, como si fueras un humano atendiendo el negocio.
 `;
 
-        // Format history for Gemini, ensuring strictly alternating roles
+        // Format history for Gemini
         let contents = [];
         
         for (const msg of history) {
@@ -67,7 +70,6 @@ Pautas:
             
             const lastMsg = contents[contents.length - 1];
             if (lastMsg && lastMsg.role === mappedRole) {
-                // Merge consecutive messages with the same role
                 lastMsg.parts[0].text += `\n${msg.text}`;
             } else {
                 contents.push({
@@ -77,41 +79,45 @@ Pautas:
             }
         }
 
-        // Prevent duplication: if the prompt is already at the end of the history
-        const lastMsg = contents[contents.length - 1];
-        if (lastMsg && lastMsg.role === 'user' && lastMsg.parts[0].text.includes(prompt.trim('\n '))) {
-            contents.pop();
-        }
-
         // Add the current user message with system instruction
-        const promptWithContext = `${systemInstruction}\n\nPregunta actual: ${prompt}`;
-        const finalLastMsg = contents[contents.length - 1];
+        const userParts = [{ text: `${systemInstruction}\n\nPregunta actual: ${text || "[Mensaje de voz]"}` }];
         
-        if (finalLastMsg && finalLastMsg.role === 'user') {
-            finalLastMsg.parts[0].text += `\n${promptWithContext}`;
-        } else {
-            contents.push({
-                role: 'user',
-                parts: [{ text: promptWithContext }]
+        // Add Audio if present (MULTIMODAL support)
+        if (audioBuffer) {
+            userParts.push({
+                inlineData: {
+                    data: audioBuffer.toString('base64'),
+                    mimeType: mimeType || 'audio/ogg'
+                }
             });
         }
 
-        // IMPORTANT: Gemini strictly requires the conversation strictly starts with 'user'
+        contents.push({
+            role: 'user',
+            parts: userParts
+        });
+
+        // Ensure strictly alternating roles and starting with 'user'
         while (contents.length > 0 && contents[0].role === 'model') {
             contents.shift();
         }
 
-        logger.info({ business: business.business_name }, 'Calling Gemini API for response');
-        const result = await model.generateContent({ contents });
-        const text = result.response.text();
+        logger.info({ 
+            business: business.business_name, 
+            hasAudio: !!audioBuffer,
+            audioSize: audioBuffer?.length 
+        }, 'Calling Gemini API (Multimodal)');
 
-        if (!text) {
+        const result = await model.generateContent({ contents });
+        const responseText = result.response.text();
+
+        if (!responseText) {
             throw new Error('Gemini returned an empty response');
         }
 
-        return text;
+        return responseText;
     } catch (error) {
-        logger.error({ error: error.message, stack: error.stack }, 'Error calling Gemini API');
+        logger.error({ error: error.message }, 'Error calling Gemini API');
         return 'Lo siento, tuve un pequeño problema procesando tu mensaje. Un humano te contactará pronto.';
     }
 }

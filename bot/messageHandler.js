@@ -31,12 +31,10 @@ const UNKNOWN_RESPONSE = 'Por favor elegí una opción del menú.';
  * @param {object} business   - Row from the `businesses` table
  * @returns {Promise<string[]>}        - Array of messages to send in sequence
  */
-async function handleMessage(senderJid, text, business, fromMe = false, history = []) {
+async function handleMessage({ senderJid, text, business, fromMe = false, history = [], audioBuffer = null, mimeType = null }) {
     const session = sessions.get(senderJid) || { welcomed: false, lastHumanInteraction: 0 };
 
     // ─── Human Intervention Detection ─────────────────────────────────────────
-    // If the message is sent FROM the bot (fromMe), it means a human is talking.
-    // We update the session to silent the bot for this user.
     if (fromMe) {
         logger.debug({ senderJid }, 'Human interaction detected, silting bot for this user');
         sessions.set(senderJid, { ...session, lastHumanInteraction: Date.now() });
@@ -59,7 +57,8 @@ async function handleMessage(senderJid, text, business, fromMe = false, history 
             normalizedText
         );
 
-    if (isGreeting) {
+    // If it's a greeting and NOT an audio, show the menu
+    if (isGreeting && !audioBuffer) {
         sessions.set(senderJid, { welcomed: true });
 
         const menuText = buildMenu(business.menu_options);
@@ -76,14 +75,15 @@ async function handleMessage(senderJid, text, business, fromMe = false, history 
         return [business.responses[normalizedText]];
     }
 
-    // ─── Gemini AI Fallback ──────────────────────────────────────────────────
-    // If nothing matches, we use Gemini to provide an intelligent response
-    logger.debug({ senderJid, text: normalizedText }, 'No match — calling Gemini');
+    // ─── Gemini AI Fallback (Handles Text AND Audio) ──────────────────────────
+    logger.debug({ senderJid, hasAudio: !!audioBuffer }, 'Calling Gemini AI');
     
-    // Pass history to AI for contextual responses
-    const aiResponse = await getChatResponse(text, business, history);
+    // Pass history and audio to AI for contextual responses
+    const aiResponse = await getChatResponse({ text, business, history, audioBuffer, mimeType });
     
     if (aiResponse) {
+        // Mark as welcomed if the AI successfully handled a voice/text request
+        if (!session.welcomed) sessions.set(senderJid, { welcomed: true });
         return [aiResponse];
     }
 

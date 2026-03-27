@@ -9,7 +9,8 @@ const {
     isJidBroadcast,
     isJidGroup,
     Browsers,
-    useMultiFileAuthState
+    useMultiFileAuthState,
+    downloadMediaMessage
 } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
 const { processMessage } = require('./botEngine');
@@ -126,9 +127,30 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                     msg.message?.buttonsResponseMessage?.selectedDisplayText ||
                     msg.message?.listResponseMessage?.title ||
                     '';
+                
+                const audioMsg = msg.message?.audioMessage;
+                let audioData = null;
+                
+                if (audioMsg) {
+                    try {
+                        logger.info({ msgId: msg.key.id }, 'Descargando mensaje de voz para procesar...');
+                        audioData = await downloadMediaMessage(
+                            msg,
+                            'buffer',
+                            {},
+                            { 
+                                logger,
+                                reuploadRequest: sock.updateMediaMessage 
+                            }
+                        );
+                        logger.debug({ size: audioData?.length }, 'Audio descargado con éxito');
+                    } catch (err) {
+                        logger.error({ err, msgId: msg.key.id }, 'Error al descargar audio');
+                    }
+                }
 
-                // Only process if text exists or is from us (human intervention detection)
-                if (!text && !msg.key.fromMe) continue;
+                // Only process if it has text, audio, or is from us (human intervention detection)
+                if (!text && !audioData && !msg.key.fromMe) continue;
 
                 const recipientJid = sock.user?.id || '';
 
@@ -136,6 +158,8 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                     senderJid: remoteJid,
                     recipientJid,
                     text: text || '',
+                    audioBuffer: audioData,
+                    mimeType: audioMsg?.mimetype || 'audio/ogg',
                     sendReply: (jid, replyText) => sendMessage(sock, jid, replyText),
                     fromMe: !!msg.key.fromMe
                 });
