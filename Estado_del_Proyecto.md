@@ -19,12 +19,9 @@
     *   Migración de sesiones locales a Supabase completada.
     *   Implementación de **Debouncing (3s)** para evitar bloqueos por actualizaciones frecuentes.
     *   Manejo robusto de Buffers mediante `BufferJSON`.
-22. **Landing Page v3.1 (Email Contact)**:
-    *   Inclusión de contacto directo vía email para mayor flexibilidad comercial.
-23. **Simplificación Contacto (Lead-to-Mail)**:
-    *   Automatización: El formulario de leads ahora abre el cliente de correo con datos pre-rellenados.
-    *   Integración: Gemini y la Landing Page ahora impulsan el contacto a `agenciagolweb@gmail.com`.
-    *   **Cero Tedio**: Solución sin configuración de servidores de correo.
+- [x] **v3.5 - IA Multimodal (Audio)**: Soporte nativo para mensajes de voz usando Gemini 1.5 Flash. 🎙️
+- [x] **v3.4 - Optimización Mobile & Lead Capture Plus**: Formulario con email y diseño 100% responsivo. 📱
+- [x] **v3.3 - Email-First Strategy**: Contacto directo simplificado vía `mailto` a `agenciagolweb@gmail.com`. 📧
 
 ## 🛠️ Tecnologías Listas
 - **IA**: Google Gemini Pro (Respuestas inteligentes con contexto).
@@ -32,9 +29,23 @@
 - **Core**: Baileys.
 
 ---
-**Estado Final de la Sesión (Marzo 27):** **PERSISTENCIA Y CONTACTO SIMPLIFICADO** 📧
-- **Plusbot v3.3**: Redirección inteligente a Email para cerrar ventas rápidamente.
-- **Bot Contextual**: Gemini entrenado para derivar leads al correo oficial.
+### 🎙️ IA Multimodal (Soporte de Audio) - v3.5
+- **Logro**: Plusbot ahora entiende mensajes de voz (audio-to-text nativo).
+- **Tecnología**: Gemini 1.5 Flash procesa el buffer binario del audio descargado por Baileys.
+- **Benficio**: Experiencia de usuario ultra natural en WhatsApp.
 
-**🎯 Próximo Objetivo:**
-Implementar el **Soporte de Mensajes de Voz** (Voz a Texto) usando Gemini. 🎙️
+### 📱 Optimización Mobile & Captura de Leads - v3.4
+- **Logro**: Landing page optimizada para celulares y tablets (sin bugs visuales).
+- **Mejora**: El formulario de interesados ahora captura **Business Name, Contact Name, Email y WhatsApp**.
+- **Acción**: Se añadió la columna `contact_email` a la tabla `leads` en Supabase.
+
+### 📧 Email-First (Simplificación de Contacto) - v3.3
+- **Logro**: Eliminación de dependencias de SMTP/APIs de correo pesadas.
+- **Flujo**: El bot deriva interesados a `agenciagolweb@gmail.com` y la web abre el correo automáticamente.
+
+---
+
+**🎯 Próximos Objetivos sugeridos:**
+1.  **Soporte de Imágenes y Documentos**: Permitir que la IA analice fotos (tickets, fotos de productos, etc.) y PDFs. 📸
+2.  **Respuestas de Voz Automáticas (TTS)**: Que el bot pueda *enviar* audios reales (usando voces humanas) en lugar de solo texto. 🗣️
+3.  **Dashboard de Analíticas**: Gráficos sencillos para ver cuántos mensajes y leads se generan por día. 📈
