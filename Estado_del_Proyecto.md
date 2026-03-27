@@ -19,6 +19,13 @@
     *   Base de conocimientos integrada en el prompt de Gemini.
     *   Nuevos campos en DB: Dirección, Web y Knowledge Base (FAQ/Stock/Precios).
     *   Editor de contexto funcional en el Dashboard.
+19. **Gestión de Menús Dinámica**:
+    *   Editor interactivo de Opciones y Respuestas Automáticas.
+    *   Soporte para múltiples niveles de respuesta JSON.
+20. **Multi-Tenancy (Multi-Cliente)**:
+    *   Login por negocio con `access_password`.
+    *   Filtro de privacidad: Clientes solo ven sus datos y leads.
+    *   Dashboard de Admin total para ver todos los bots.
 
 ## 🛠️ Tecnologías Listas
 - **IA**: Google Gemini Pro (Respuestas inteligentes con contexto).
@@ -29,7 +36,7 @@
 **Estado Final de la Sesión (Marzo 26):** **SESIÓN ESTABLE Y DISEÑO PULIDO** 🟢
 - **Plusbot v3.1**: Identidad Plusbot consolidada con diseño premium.
 - **Conexión**: Restablecida usando archivos locales (22:37 hs config) para máxima estabilidad.
-- **Modelo IA**: gemini-2.5-flash (compatible con la cuenta actual).
+- **Modelo IA**: gemini-1.5-flash (Estable & High-Speed).
 
 **🎯 Próximo Objetivo:**
-Optimizar la gestión de **Menu de Opciones** desde el dashboard para que el usuario pueda configurar el flujo del bot sin tocar código. 🚀
+Migrar la **Persistencia de Sesiones de WhatsApp** de archivos locales a **Supabase (JSONB)** para asegurar que los bots no se desconecten al reiniciar el servidor en Render. 🚀
