@@ -195,7 +195,8 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
                 const isoDateTime = `${bookedDate}T${bookedTime}:00Z`;
                 
                 try {
-                    const cleanClientNumber = senderJid.split('@')[0].split(':')[0];
+                    // Ultra-clean numeric capture to avoid técnico IDs or system suffixes (:2, :3, etc)
+                    const cleanClientNumber = senderJid.replace(/[^0-9]/g, '');
                     await bookAppointment({
                         businessId: business.id,
                         contactName: 'Usuario WhatsApp', 
