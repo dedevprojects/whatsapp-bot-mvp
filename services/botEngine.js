@@ -124,19 +124,42 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
         return;
     }
 
+    // 1. --- HUMAN INTERVENTION DETECTION (FROM ME) ---
+    // If the message is from the bot/human phone, update the silence session and stop.
+    if (fromMe) {
+        logger.debug({ senderJid }, 'Human/Bot interaction from phone detected. Updating session.');
+        await handleMessage({ senderJid, text, business, fromMe: true, history: [] });
+        return;
+    }
+
+    // 2. --- LOAD RECENT HISTORY ---
+    // We load history BEFORE logging the current message to keep them separate for AI context.
+    const history = await getRecentHistory(business.id, senderJid);
+
+    // 3. --- LOG INBOUND MESSAGE ---
+    const logText = text || (mediaBuffer ? `[Media: ${mimeType}]` : "");
+    await logMessage(business.id, senderJid, logText, 'inbound');
+
+    // -------------------------------------------------------------------------
     // --- DETERMINISTIC FILTER (INSTANT RESPONSES) ---
-    const rawText = text.toLowerCase().trim();
-    const cleanNumberText = text.replace(/[^0-9]/g, '').trim(); // Captures "1", "1.", "1)" as "1"
+    // -------------------------------------------------------------------------
+    const rawText = (text || '').toLowerCase().trim();
+    const cleanNumberText = (text || '').replace(/[^0-9]/g, '').trim(); 
     
     const greetings = ['hola', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches', 'buenas', 'hola!', 'hola.', 'inicio', 'menu', 'menú'];
-    const isGreeting = greetings.includes(rawText);
+    
+    // isFirstContact if history was empty.
+    const isFirstContact = history.length === 0;
+    const matchesGreeting = greetings.includes(rawText);
+    const isGreeting = isFirstContact || matchesGreeting;
+
     const fixedMenu = `1. Servicios 🛠️\n2. Precios 💰\n3. Agendar Turno 🗓️`;
 
-    // A. Handle Greetings
-    if (isGreeting) {
+    // A. Handle Greetings/Initial Contact
+    if (isGreeting && !mediaBuffer) {
         const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${fixedMenu}`;
         await sendReply(senderJid, finalGreeting);
-        logMessage(business.id, senderJid, finalGreeting, 'outbound');
+        await logMessage(business.id, senderJid, finalGreeting, 'outbound');
         return;
     }
 
@@ -144,13 +167,13 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     if (cleanNumberText === "1") {
         const servicesText = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${fixedMenu}`;
         await sendReply(senderJid, servicesText);
-        logMessage(business.id, senderJid, servicesText, 'outbound');
+        await logMessage(business.id, senderJid, servicesText, 'outbound');
         return;
     }
     if (cleanNumberText === "2") {
         const pricesText = `💰 *Nuestros Precios:*\n\n${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${fixedMenu}`;
         await sendReply(senderJid, pricesText);
-        logMessage(business.id, senderJid, pricesText, 'outbound');
+        await logMessage(business.id, senderJid, pricesText, 'outbound');
         return;
     }
     if (cleanNumberText === "3") {
@@ -167,18 +190,11 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
 
         const turnsText = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorario: ${business.shift_start} a ${business.shift_end}\n\n*Para reservar, simplemente escribe el día y la hora que prefieres.* (Ej: El Miércoles a las 10:00)`;
         await sendReply(senderJid, turnsText);
-        logMessage(business.id, senderJid, turnsText, 'outbound');
+        await logMessage(business.id, senderJid, turnsText, 'outbound');
         return;
     }
 
-    // 1. Get recent history to provide context (Only if not a simple menu path)
-    const history = await getRecentHistory(business.id, senderJid);
-
-    // 2. Log inbound message
-    if (!fromMe) {
-        const logText = text || (mediaBuffer ? `[Media: ${mimeType}]` : "");
-        await logMessage(business.id, senderJid, logText, 'inbound');
-    }
+    // --- GEMINI AI FALLBACK ---
     const augmentedBusiness = { ...business };
     if (business.booking_enabled) {
         try {
@@ -187,7 +203,6 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
             const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             const dayName = dayNames[now.getDay()];
             
-            // Map working_days string to actual names safely
             let workingDaysLabels = 'Lunes a Sábado';
             const workingDaysRaw = business.working_days || '1,2,3,4,5,6';
             const workingDaysArr = typeof workingDaysRaw === 'string' ? workingDaysRaw.split(',') : (Array.isArray(workingDaysRaw) ? workingDaysRaw : []);
@@ -211,11 +226,9 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 `- HORARIOS: ${business.shift_start} a ${business.shift_end}.\n` +
                 `- HOY ES: ${dayName} ${todayISO}.\n` +
                 `- LIBRES HOY (${todayISO}): ${slotsToday.length > 0 ? slotsToday.join(', ') : 'Consultar disponibilidad'}.\n` +
-                `- REGLA FINAL: Para agendar, responde SIEMPRE: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'\n`;
+                `- REGLA FINAL: Para reservar un turno, el usuario debe elegir día y hora. El bot debe confirmar diciendo: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'\n`;
 
             augmentedBusiness.knowledge_base = menuRules + (business.knowledge_base || "");
-            
-            logger.info({ business: business.business_name, dayName }, 'Menu rules prepended for high priority');
         } catch (err) {
             logger.error({ err }, 'Failed to inject availability context (Non-blocking)');
         }
@@ -224,17 +237,16 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     // 4. Handle message (Using augmented business, stable AI call)
     let replies = [];
     try {
-        replies = await handleMessage({ senderJid, text, business: augmentedBusiness, fromMe, history, mediaBuffer, mimeType });
+        replies = await handleMessage({ senderJid, text, business: augmentedBusiness, fromMe: false, history, mediaBuffer, mimeType });
     } catch (err) {
         logger.error({ err }, 'AI handleMessage failed');
         replies = ['Disculpa, estoy teniendo un problema técnico momentáneo. ¿Podrías repetirme tu consulta?'];
     }
 
     for (const reply of replies) {
-        // --- 1. ALWAYS SEND THE REPLY TO WHATSAPP FIRST (Stability Priority) ---
         await sendReply(senderJid, reply);
         
-        // --- 2. (ADDITIVE) If booking detected, store in DB silently ---
+        // Save booking if detected
         if (reply.includes('Turno agendado para el')) {
             const combinedMatch = reply.match(/(\d{4}-\d{2}-\d{2}).*?(\d{2}:\d{2})/);
             if (combinedMatch) {
@@ -243,29 +255,21 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 const isoDateTime = `${bookedDate}T${bookedTime}:00Z`;
                 
                 try {
-                    // Filter out non-numeric chars
                     const cleanClientNumber = senderJid.replace(/[^0-9]/g, '');
-                    
-                    // PREVENT SELF-BOOKING (If the number is the same as the business WhatsApp)
-                    if (cleanClientNumber === business.whatsapp_number.replace(/[^0-9]/g, '')) {
-                        logger.info('Skipping self-booking/internal chat');
-                    } else {
-                        await bookAppointment({
-                            businessId: business.id,
-                            contactName: senderName || 'Usuario WhatsApp', 
-                            contactNumber: cleanClientNumber,
-                            isoDateTime
-                        });
-                        logger.info({ business: business.business_name, time: isoDateTime }, 'AI confirmed booking saved to DB');
-                    }
+                    await bookAppointment({
+                        businessId: business.id,
+                        contactName: senderName || 'Usuario WhatsApp', 
+                        contactNumber: cleanClientNumber,
+                        isoDateTime
+                    });
+                    logger.info({ business: business.business_name, time: isoDateTime }, 'AI confirmed booking saved to DB');
                 } catch (err) {
                     logger.error({ err }, 'Background booking failed to save (non-blocking)');
                 }
             }
         }
         
-        // Log log
-        logMessage(business.id, senderJid, reply, 'outbound');
+        await logMessage(business.id, senderJid, reply, 'outbound');
     }
 }
 

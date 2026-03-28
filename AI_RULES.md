@@ -11,7 +11,10 @@ Los siguientes archivos y lógicas han alcanzado su **versión de oro (estable) 
    - **Lógica de Despiece de Saludos (`isGreeting`)**: La longitud de la base de datos de historia y la detección de primer contacto funcionan a la perfección de forma condicional.
    - **Lógica de "Human Intervention"**: Se dispara únicamente si un Humano escribe desde el celular ligado o la Web. Si tocas la variable `fromMe` en *whatsappService*, romperás esto irremediablemente.
 
-3. **`services/gemini.js`**:
+3. **`services/botEngine.js`**:
+   - **Filtros Determinísticos (Sección Inicial)**: Garantizan respuesta inmediata sin costo de API para opciones básicas (1, 2, 3) y el saludo inicial. **Se recomienda NO modificar esta sección**, ya que previene bucles infinitos al usar la guardia `fromMe` y asegura la estabilidad del menú principal.
+
+4. **`services/gemini.js`**:
    - **Versión de Modelo Requerida**: DEBE usarse EXCLUSIVAMENTE `gemini-2.5-flash`. Cambiar a versiones antiguas (ej. `gemini-1.5-flash-latest` o `pro`) tirará un `Error 404 de API v1beta` por restricciones en la cuenta de facturación.
    - **El Prompt (`systemInstruction`)**: Contiene la estructura avanzada con inyección de Supabase (`knowledge_base`, `website`, etc) pero incluye expresamente la capacidad de que la IA use su raciocinio común (Ej: "no puedes comprar una propiedad con 15 dólares"). **No volver a prompt tonto, ni a prompt estricto que prohíba alucinar completamente sin usar lógica.**
 
