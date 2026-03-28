@@ -9,6 +9,7 @@
 
 const supabase = require('../config/supabase');
 const { handleMessage } = require('../bot/messageHandler');
+const { buildMenu } = require('../bot/menuBuilder');
 const logger = require('../utils/logger');
 const { getAvailableSlots, bookAppointment } = require('./appointmentService');
 
@@ -153,12 +154,17 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     const matchesGreeting = greetings.includes(rawText);
     const isGreeting = isFirstContact || matchesGreeting;
 
-    const fixedMenu = `1. Servicios 🛠️\n2. Precios 💰\n3. Agendar Turno 🗓️`;
+    let dynamicMenu = buildMenu(business.menu_options);
+    if (!dynamicMenu || dynamicMenu.includes('Sin opciones')) {
+        dynamicMenu = `1️⃣ Servicios 🛠️\n2️⃣ Precios 💰\n3️⃣ Agendar Turno 🗓️`;
+    } else if (business.booking_enabled && !dynamicMenu.toLowerCase().includes('turno') && !dynamicMenu.toLowerCase().includes('reserva')) {
+        dynamicMenu += `\n\n🗓️ Para agendar un turno, simplemente escribe "Turno".`;
+    }
 
     // A. Handle Greetings/Initial Contact
     if (isGreeting && !mediaBuffer) {
         // Build the menu based on MUST HAVE options AND business options
-        const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${fixedMenu}`;
+        const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${dynamicMenu}`;
         await sendReply(senderJid, finalGreeting);
         await logMessage(business.id, senderJid, finalGreeting, 'outbound');
         return;
@@ -175,13 +181,13 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
 
     // Fallback fixed logic for 1, 2, 3 if business doesn't have them
     if (cleanNumberText === "1") {
-        const servicesText = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${fixedMenu}`;
+        const servicesText = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${dynamicMenu}`;
         await sendReply(senderJid, servicesText);
         await logMessage(business.id, senderJid, servicesText, 'outbound');
         return;
     }
     if (cleanNumberText === "2") {
-        const pricesText = `💰 *Nuestros Precios:*\n\n${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${fixedMenu}`;
+        const pricesText = `💰 *Nuestros Precios:*\n\n${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${dynamicMenu}`;
         await sendReply(senderJid, pricesText);
         await logMessage(business.id, senderJid, pricesText, 'outbound');
         return;
@@ -198,7 +204,10 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
             if (workingDaysArr.length > 0) workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'día hábil').join(', ');
         } catch(e){}
 
-        const turnsText = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorario: ${business.shift_start} a ${business.shift_end}\n\n*Para reservar, simplemente escribe el día y la hora que prefieres.* (Ej: El Miércoles a las 11:00)`;
+        const cleanShiftStart = (business.shift_start || '09:00:00').slice(0, 5);
+        const cleanShiftEnd = (business.shift_end || '18:00:00').slice(0, 5);
+
+        const turnsText = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorarios: ${cleanShiftStart} a ${cleanShiftEnd}\nTurnos duran: ${business.slot_duration || 30} mins\n\n*Para reservar, simplemente escribe el día y la hora de tu preferencia que encaje en turnos exactos.* (Ej: El Miércoles a las ${cleanShiftStart})`;
         await sendReply(senderJid, turnsText);
         await logMessage(business.id, senderJid, turnsText, 'outbound');
         return;
@@ -230,10 +239,13 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 logger.warn({ business: business.business_name }, 'Slots check timed out (Non-blocking)');
             }
             
+            const cleanShiftStartAI = (business.shift_start || '09:00:00').slice(0, 5);
+            const cleanShiftEndAI = (business.shift_end || '18:00:00').slice(0, 5);
+
             const menuRules = `\n--- REGLAS CRÍTICAS DE RESPUESTA ---\n` +
-                `- SIEMPRE QUE TE SALUDEN O ESTÉS EN DUDA, PRESENTA ESTE MENÚ: 1. Servicios 🛠️, 2. Precios 💰, 3. Turnos/Reservas 🗓️.\n` +
+                `- SIEMPRE QUE TE SALUDEN O ESTÉS EN DUDA, PRESENTA ESTE MENÚ:\n${dynamicMenu}\n` +
                 `- DÍAS DE ATENCIÓN: ${workingDaysLabels}.\n` +
-                `- HORARIOS: ${business.shift_start} a ${business.shift_end}.\n` +
+                `- HORARIOS: ${cleanShiftStartAI} a ${cleanShiftEndAI}. Los turnos duran ${business.slot_duration || 30} mins, por lo que NO hay horarios intermedios caprichosos (ej: si empieza a las 9 y dura 45m, los turnos son 09:00, 09:45, 10:30, etc).\n` +
                 `- HOY ES: ${dayName} ${todayISO}.\n` +
                 `- LIBRES HOY (${todayISO}): ${slotsToday.length > 0 ? slotsToday.join(', ') : 'Consultar disponibilidad'}.\n` +
                 `- REGLA DE RESERVA: Si el usuario menciona un día (como Miércoles) o fecha y una hora, DEBES AGENDARLO. No pidas confirmación extra si ya tienes día y hora.\n` +
