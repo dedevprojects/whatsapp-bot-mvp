@@ -591,14 +591,7 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
     </header>
     <div class="container">
         
-        <!-- Analytics Section -->
-        <div class="card wide">
-            <h2>Actividad Reciente (Últimos 7 días)</h2>
-            <div style="height: 250px; width:100%;">
-                <canvas id="leadsChart"></canvas>
-            </div>
-        </div>
-
+        <!-- Analytics Section removed as per request -->
         <div class="card">
             <h2>Gestión de Bots Activos</h2>
             <table>
@@ -623,39 +616,6 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
             const r = await fetch('/api/reconnect/'+num, {method:'POST'});
             if(r.ok) { alert('Comando de reinicio enviado con éxito. Espera 10 segundos.'); location.reload(); }
         }
-
-        // --- Chart logic ---
-        const ctx = document.getElementById('leadsChart').getContext('2d');
-        const stats = ${JSON.stringify(statsData)};
-        
-        new Chart(ctx, {
-            type: 'line',
-            data: {
-                labels: stats.map(s => s.day),
-                datasets: [{
-                    label: 'Leads Capturados',
-                    data: stats.map(s => s.count),
-                    borderColor: '#25D366',
-                    backgroundColor: 'rgba(37, 211, 102, 0.1)',
-                    fill: true,
-                    tension: 0.4,
-                    pointRadius: 6,
-                    pointBackgroundColor: '#fff',
-                    pointBorderColor: '#25D366'
-                }]
-            },
-            options: {
-                responsive: true,
-                maintainAspectRatio: false,
-                scales: {
-                    y: { beginAtZero: true, grid: { display: false } },
-                    x: { grid: { display: false } }
-                },
-                plugins: {
-                    legend: { display: false }
-                }
-            }
-        });
     </script>
 </body>
 </html>`);
@@ -998,32 +958,16 @@ app.get('/dashboard/appointments/cancel/:id', authMiddleware, async (req, res) =
 app.get('/dashboard/disconnect/:id', authMiddleware, async (req, res) => {
     try {
         const { id } = req.params;
-        const { data: biz } = await supabase.from('businesses').select('whatsapp_number').eq('id', id).single();
+        const { data: biz } = await supabase.from('businesses').select('whatsapp_number, business_name').eq('id', id).single();
         
         if (biz) {
-            const { disconnectBusiness } = require('./services/whatsappService');
+            const { disconnectBusiness, connectBusiness } = require('./services/whatsappService');
+            // This destroys the socket and cleans the Supabase session
             await disconnectBusiness(biz.whatsapp_number);
             logger.info({ whatsappNumber: biz.whatsapp_number }, 'User triggered manual session reset via dashboard');
-        }
-        
-        res.redirect(`/dashboard/edit/${id}`);
-    } catch (err) {
-        logger.error({ err }, 'Error in manual disconnect route');
-        res.redirect('/dashboard');
-    }
-});
-
-
-/** Route to reset session manually */
-app.get('/dashboard/disconnect/:id', authMiddleware, async (req, res) => {
-    try {
-        const { id } = req.params;
-        const { data: biz } = await supabase.from('businesses').select('whatsapp_number').eq('id', id).single();
-        
-        if (biz) {
-            const { disconnectBusiness } = require('./services/whatsappService');
-            await disconnectBusiness(biz.whatsapp_number);
-            logger.info({ whatsappNumber: biz.whatsapp_number }, 'User triggered manual session reset via dashboard');
+            
+            // Re-initiate immediately to spawn a new Baileys socket/QR instance!
+            connectBusiness(biz.whatsapp_number, biz.business_name).catch(e => logger.error({err: e}, 'Failed to restart connection after disconnect'));
         }
         
         res.redirect(`/dashboard/edit/${id}`);
