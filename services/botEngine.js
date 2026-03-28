@@ -33,7 +33,7 @@ async function logMessage(businessId, senderJid, text, direction) {
 /**
  * Retrieves the last N messages for a conversation.
  */
-async function getRecentHistory(businessId, senderJid, limit = 6) {
+async function getRecentHistory(businessId, senderJid, limit = 20) {
     const { data, error } = await supabase
         .from('messages')
         .select('message_text, direction')
@@ -138,23 +138,22 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     const greetings = ['hola', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches', 'buenas', 'hola!', 'hola.', 'inicio', 'menu', 'menú'];
     const isGreeting = greetings.includes(text.toLowerCase().trim());
     
-    if (isGreeting) {
-        let menuStr = '';
-        if (business.menu_options) {
-             Object.entries(business.menu_options).forEach(([k, v]) => {
-                 menuStr += `${k}. ${v}\n`;
-             });
-        }
-        // Add Booking option automatically if enabled but not in menu
-        if (business.booking_enabled && !menuStr.includes('Turno')) {
-            menuStr += `${Object.keys(business.menu_options || {}).length + 1}. Agendar Turno 🗓️\n`;
-        }
+    // FORCED MENU (1. Servicios, 2. Precios, 3. Turnos)
+    const fixedMenu = `1. Servicios 🛠️\n2. Precios 💰\n3. Agendar Turno 🗓️`;
 
-        const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${menuStr.trim()}`;
+    if (isGreeting) {
+        const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${fixedMenu}`;
         await sendReply(senderJid, finalGreeting);
         logMessage(business.id, senderJid, finalGreeting, 'outbound');
-        return; // EXIT EARLY - NO AI NEEDED FOR GREETING
+        return; // EXIT EARLY
     }
+
+    // 2.1 NUMBER SELECTOR (Guiding AI based on menu choice)
+    let extraContext = "";
+    const cleanText = text.trim();
+    if (cleanText === "1") extraContext = "\n- EL USUARIO ELIGIÓ 'SERVICIOS'. Por favor, detalla nuestros servicios principales basados en tu descripción y base de conocimientos.";
+    if (cleanText === "2") extraContext = "\n- EL USUARIO ELIGIÓ 'PRECIOS'. Por favor, informa los precios y costos basados estrictamente en tu base de conocimientos.";
+    if (cleanText === "3") extraContext = "\n- EL USUARIO ELIGIÓ 'TURNOS'. Por favor, ofrece agendar un turno e informa nuestros días y horarios de atención.";
 
     // 3. (ADDITIVE) Check and Inject Appointment Availability & Rules
     const augmentedBusiness = { ...business };
@@ -173,25 +172,23 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'día hábil').join(', ');
             }
 
-            // Get available slots with a FAST TIMEOUT (max 2 seconds)
+            // Get available slots
             let slotsToday = [];
             try {
                 const slotsPromise = getAvailableSlots(business, todayISO);
                 const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000));
                 slotsToday = await Promise.race([slotsPromise, timeoutPromise]);
             } catch (slotsErr) {
-                logger.warn({ business: business.business_name }, 'Slots check timed out or failed (Proceeding without slots)');
+                logger.warn({ business: business.business_name }, 'Slots check timed out (Non-blocking)');
             }
             
-            const menuRules = `\n--- REGLAS CRÍTICAS DE RESPUESTA (PRIORIDAD ALTA) ---\n` +
-                `- SI EL USUARIO TE SALUDA, PRESENTA SIEMPRE ESTE MENÚ COMPLETO: 1. Servicios 🛠️, 2. Precios 💰, 3. Turnos/Reservas 🗓️.\n` +
+            const menuRules = `\n--- REGLAS CRÍTICAS DE RESPUESTA ---${extraContext}\n` +
+                `- SIEMPRE QUE TE SALUDEN O ESTÉS EN DUDA, PRESENTA ESTE MENÚ: 1. Servicios 🛠️, 2. Precios 💰, 3. Turnos/Reservas 🗓️.\n` +
                 `- DÍAS DE ATENCIÓN: ${workingDaysLabels}.\n` +
-                `- HORARIOS: ${business.shift_start} a ${business.shift_end} (Turnos cada ${business.slot_duration} min).\n` +
+                `- HORARIOS: ${business.shift_start} a ${business.shift_end}.\n` +
                 `- HOY ES: ${dayName} ${todayISO}.\n` +
                 `- LIBRES HOY (${todayISO}): ${slotsToday.length > 0 ? slotsToday.join(', ') : 'Consultar disponibilidad'}.\n` +
-                `- SI PREGUNTAN POR TURNOS/RESERVAS: Infórmales tus DÍAS y HORARIOS y pregúntales qué día desean agendar.\n` +
-                `- REGLA FINAL: Para agendar, responde SIEMPRE: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'\n` +
-                `--------------------------------------------\n`;
+                `- REGLA FINAL: Para agendar, responde SIEMPRE: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'\n`;
 
             augmentedBusiness.knowledge_base = menuRules + (business.knowledge_base || "");
             
