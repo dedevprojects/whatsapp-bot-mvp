@@ -709,7 +709,14 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
         <a href="/dashboard" style="color:white; text-decoration:none; opacity:0.8;">← Volver al Panel</a>
     </header>
     <div class="container">
-        <h1>Configurar Contexto: ${biz.business_name}</h1>
+        <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom: 2rem;">
+            <h1 style="margin:0;">Configurar Contexto: ${biz.business_name}</h1>
+            <a href="/dashboard/disconnect/${id}" 
+               onclick="return confirm('¿Seguro quieres desvincular WhatsApp y resetear la sesión? Esto cerrará la conexión actual y generará un QR nuevo.')"
+               style="background:#FFF; color:#DC3545; border:1px solid #DC3545; padding:10px 20px; border-radius:12px; text-decoration:none; font-weight:600; font-size:0.9rem;">
+               ⚠️ Resetear Sesión
+            </a>
+        </div>
         <form action="/dashboard/edit/${biz.id}" method="POST">
             <div class="form-group">
                 <label>Nombre del Negocio</label>
@@ -959,6 +966,46 @@ app.get('/dashboard/appointments/cancel/:id', authMiddleware, async (req, res) =
     
     res.redirect(`/dashboard/edit/${biz}`);
 });
+
+/** Route to reset session manually */
+app.get('/dashboard/disconnect/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data: biz } = await supabase.from('businesses').select('whatsapp_number').eq('id', id).single();
+        
+        if (biz) {
+            const { disconnectBusiness } = require('./services/whatsappService');
+            await disconnectBusiness(biz.whatsapp_number);
+            logger.info({ whatsappNumber: biz.whatsapp_number }, 'User triggered manual session reset via dashboard');
+        }
+        
+        res.redirect(`/dashboard/edit/${id}`);
+    } catch (err) {
+        logger.error({ err }, 'Error in manual disconnect route');
+        res.redirect('/dashboard');
+    }
+});
+
+
+/** Route to reset session manually */
+app.get('/dashboard/disconnect/:id', authMiddleware, async (req, res) => {
+    try {
+        const { id } = req.params;
+        const { data: biz } = await supabase.from('businesses').select('whatsapp_number').eq('id', id).single();
+        
+        if (biz) {
+            const { disconnectBusiness } = require('./services/whatsappService');
+            await disconnectBusiness(biz.whatsapp_number);
+            logger.info({ whatsappNumber: biz.whatsapp_number }, 'User triggered manual session reset via dashboard');
+        }
+        
+        res.redirect(`/dashboard/edit/${id}`);
+    } catch (err) {
+        logger.error({ err }, 'Error in manual disconnect route');
+        res.redirect('/dashboard');
+    }
+});
+
 
 
 

@@ -216,11 +216,21 @@ async function disconnectBusiness(whatsappNumber) {
     const sock = connections.get(whatsappNumber);
     if (sock) {
         try {
-            await sock.logout();
-            sock.ws.close();
+            // Attempt graceful close, but don't hang if it's already dead
+            sock.end(new Error('Manual reset requested'));
         } catch (e) {}
         connections.delete(whatsappNumber);
-        logger.info({ whatsappNumber }, 'WhatsApp disconnected');
+        qrCodes.delete(whatsappNumber);
+        logger.info({ whatsappNumber }, 'WhatsApp memory cleared for manual reset');
+    }
+    
+    // THE RESET: Explicitly clear from Supabase so it starts fresh next time
+    try {
+        const { error } = await supabase.from('whatsapp_sessions').delete().eq('whatsapp_number', whatsappNumber);
+        if (error) throw error;
+        logger.info({ whatsappNumber }, 'Session data cleared from Supabase');
+    } catch (err) {
+        logger.error({ err, whatsappNumber }, 'Failed to clear session from DB during disconnect');
     }
 }
 
