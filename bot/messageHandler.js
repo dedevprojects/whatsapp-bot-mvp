@@ -31,7 +31,7 @@ const UNKNOWN_RESPONSE = 'Por favor elegí una opción del menú.';
  * @param {object} business   - Row from the `businesses` table
  * @returns {Promise<string[]>}        - Array of messages to send in sequence
  */
-async function handleMessage({ senderJid, text, business, fromMe = false, history = [], mediaBuffer = null, mimeType = null }) {
+async function handleMessage({ senderJid, senderName, text, business, fromMe = false, history = [], mediaBuffer = null, mimeType = null }) {
     const session = sessions.get(senderJid) || { welcomed: false, lastHumanInteraction: 0 };
 
     // ─── Human Intervention Detection ─────────────────────────────────────────
@@ -75,7 +75,7 @@ async function handleMessage({ senderJid, text, business, fromMe = false, histor
     logger.debug({ senderJid, hasMedia: !!mediaBuffer }, 'Calling Gemini AI');
     
     // Pass history and media to AI for contextual responses
-    const aiResponse = await getChatResponse({ text, business, history, mediaBuffer, mimeType });
+    const aiResponse = await getChatResponse({ text, senderName, business, history, mediaBuffer, mimeType });
     
     if (aiResponse) {
         // Mark as welcomed if the AI successfully handled a media/text request

@@ -157,13 +157,23 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
 
     // A. Handle Greetings/Initial Contact
     if (isGreeting && !mediaBuffer) {
+        // Build the menu based on MUST HAVE options AND business options
         const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${fixedMenu}`;
         await sendReply(senderJid, finalGreeting);
         await logMessage(business.id, senderJid, finalGreeting, 'outbound');
         return;
     }
 
-    // B. Handle Numeric Options (1=Servicios, 2=Precios, 3=Turnos)
+    // B. Handle Numeric Options (優先順位: Business Responses > Fixed Logic)
+    // We check if the business has a response for this number.
+    if (business.responses && business.responses[cleanNumberText]) {
+        const responseText = business.responses[cleanNumberText];
+        await sendReply(senderJid, responseText);
+        await logMessage(business.id, senderJid, responseText, 'outbound');
+        return;
+    }
+
+    // Fallback fixed logic for 1, 2, 3 if business doesn't have them
     if (cleanNumberText === "1") {
         const servicesText = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${fixedMenu}`;
         await sendReply(senderJid, servicesText);
@@ -188,7 +198,7 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
             if (workingDaysArr.length > 0) workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'día hábil').join(', ');
         } catch(e){}
 
-        const turnsText = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorario: ${business.shift_start} a ${business.shift_end}\n\n*Para reservar, simplemente escribe el día y la hora que prefieres.* (Ej: El Miércoles a las 10:00)`;
+        const turnsText = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorario: ${business.shift_start} a ${business.shift_end}\n\n*Para reservar, simplemente escribe el día y la hora que prefieres.* (Ej: El Miércoles a las 11:00)`;
         await sendReply(senderJid, turnsText);
         await logMessage(business.id, senderJid, turnsText, 'outbound');
         return;
@@ -226,9 +236,17 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 `- HORARIOS: ${business.shift_start} a ${business.shift_end}.\n` +
                 `- HOY ES: ${dayName} ${todayISO}.\n` +
                 `- LIBRES HOY (${todayISO}): ${slotsToday.length > 0 ? slotsToday.join(', ') : 'Consultar disponibilidad'}.\n` +
-                `- REGLA FINAL: Para reservar un turno, el usuario debe elegir día y hora. El bot debe confirmar diciendo: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'\n`;
+                `- REGLA DE RESERVA: Si el usuario menciona un día (como Miércoles) o fecha y una hora, DEBES AGENDARLO. No pidas confirmación extra si ya tienes día y hora.\n` +
+                `- FORMATO DE CONFIRMACIÓN OBLIGATORIO: Para confirmar el turno, DEBES incluir exactamente esta frase: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.' (reemplazando con la fecha y hora calculada).\n`;
 
-            augmentedBusiness.knowledge_base = menuRules + (business.knowledge_base || "");
+            // Mix in the business responses so Gemini knows about specific option contents (prices, etc)
+            let extraBusinessContext = "";
+            if (business.responses) {
+                extraBusinessContext = "\n--- RESPUESTAS CONFIGURADAS ---\n" + 
+                    Object.entries(business.responses).map(([k, v]) => `Opción ${k}: ${v}`).join('\n') + "\n";
+            }
+
+            augmentedBusiness.knowledge_base = menuRules + extraBusinessContext + (business.knowledge_base || "");
         } catch (err) {
             logger.error({ err }, 'Failed to inject availability context (Non-blocking)');
         }
@@ -237,7 +255,7 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     // 4. Handle message (Using augmented business, stable AI call)
     let replies = [];
     try {
-        replies = await handleMessage({ senderJid, text, business: augmentedBusiness, fromMe: false, history, mediaBuffer, mimeType });
+        replies = await handleMessage({ senderJid, senderName, text, business: augmentedBusiness, fromMe: false, history, mediaBuffer, mimeType });
     } catch (err) {
         logger.error({ err }, 'AI handleMessage failed');
         replies = ['Disculpa, estoy teniendo un problema técnico momentáneo. ¿Podrías repetirme tu consulta?'];
