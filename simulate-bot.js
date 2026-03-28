@@ -7,7 +7,7 @@ async function simulateMessage() {
     // We mock the sendReply to see what would be sent
     const mockSendReply = async (jid, content, options) => {
         if (Buffer.isBuffer(content)) {
-            console.log(`[BOT SENT AUDIO]: Size ${content.length} bytes, format: ${options?.mimetype}`);
+            console.log(`[BOT SENT AUDIO]: Size ${content.length} bytes, format: ${options?.mimetype || 'default'}`);
         } else {
             console.log(`[BOT SENT TEXT]: "${content}"`);
         }

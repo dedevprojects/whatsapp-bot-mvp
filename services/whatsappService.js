@@ -128,16 +128,15 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                     msg.message?.listResponseMessage?.title ||
                     '';
                 
-                const audioMsg = msg.message?.audioMessage;
                 const imageMsg = msg.message?.imageMessage;
                 const documentMsg = msg.message?.documentMessage || msg.message?.documentWithCaptionMessage?.message?.documentMessage;
                 
                 let mediaData = null;
                 let mimeType = null;
                 
-                if (audioMsg || imageMsg || documentMsg) {
+                if (imageMsg || documentMsg) {
                     try {
-                        const type = audioMsg ? 'audio' : (imageMsg ? 'image' : 'document');
+                        const type = imageMsg ? 'image' : 'document';
                         logger.info({ msgId: msg.key.id, type }, `Descargando ${type} para procesar...`);
                         
                         mediaData = await downloadMediaMessage(
@@ -149,7 +148,7 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                                 reuploadRequest: sock.updateMediaMessage 
                             }
                         );
-                        mimeType = audioMsg?.mimetype || imageMsg?.mimetype || documentMsg?.mimetype;
+                        mimeType = imageMsg?.mimetype || documentMsg?.mimetype;
                         logger.debug({ size: mediaData?.length, mimeType }, 'Media descargado con éxito');
                     } catch (err) {
                         logger.error({ err, msgId: msg.key.id }, 'Error al descargar media');
@@ -170,7 +169,7 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                     text: finalContextText,
                     mediaBuffer: mediaData,
                     mimeType: mimeType,
-                    sendReply: (jid, replyText) => sendMessage(sock, jid, replyText),
+                    sendReply: (jid, content, options) => sendMessage(sock, jid, content, options),
                     fromMe: !!msg.key.fromMe
                 });
             } catch (err) {
@@ -183,21 +182,13 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
 }
 
 /**
- * Sends a message via a given socket. Supports text and audio.
+ * Sends a text message via a given socket.
  */
 async function sendMessage(sock, jid, content, options = {}) {
     if (!sock) throw new Error('No socket available');
     
-    if (Buffer.isBuffer(content)) {
-        await sock.sendMessage(jid, { 
-            audio: content, 
-            mimetype: options.mimetype || 'audio/mp4',
-            ptt: options.ptt !== undefined ? options.ptt : true 
-        });
-    } else {
-        // Send as text
-        await sock.sendMessage(jid, { text: content });
-    }
+    // Send as text
+    await sock.sendMessage(jid, { text: content });
 }
 
 /**

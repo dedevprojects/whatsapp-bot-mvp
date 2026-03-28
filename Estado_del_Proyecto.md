@@ -20,8 +20,7 @@
     *   Implementación de **Debouncing (3s)** para evitar bloqueos por actualizaciones frecuentes.
     *   Manejo robusto de Buffers mediante `BufferJSON`.
 - [x] **v3.6 - IA Multimodal Pro (Visión & Docs)**: Análisis de fotos y PDFs sin costo adicional (Gemini 1.5). 📸
-- [x] **v3.5 - IA Multimodal (Audio)**: Soporte nativo para mensajes de voz usando Gemini 1.5 Flash. 🎙️
-- [x] **v3.4 - Optimización Mobile & Lead Capture Plus**: Formulario con email y diseño 100% responsivo. 📱
+- [x] **v3.5 - Lead Capture Plus**: Formulario con email y diseño 100% responsivo. 📱
 - [x] **v3.3 - Email-First Strategy**: Contacto directo simplificado vía `mailto` a `agenciagolweb@gmail.com`. 📧
 
 ## 🛠️ Tecnologías Listas
@@ -35,11 +34,6 @@
 - **Tecnología**: Gemini 1.5 Flash procesa múltiples tipos de media nativamente.
 - **Beneficio**: Los clientes pueden enviar fotos de lo que necesitan y el bot lo interpreta al instante.
 
-### 🎙️ IA Multimodal (Soporte de Audio) - v3.5
-- **Logro**: Plusbot ahora entiende mensajes de voz (audio-to-text nativo).
-- **Tecnología**: Gemini 1.5 Flash procesa el buffer binario del audio descargado por Baileys.
-- **Benficio**: Experiencia de usuario ultra natural en WhatsApp.
-
 ### 📱 Optimización Mobile & Captura de Leads - v3.4
 - **Logro**: Landing page optimizada para celulares y tablets (sin bugs visuales).
 - **Mejora**: El formulario de interesados ahora captura **Business Name, Contact Name, Email y WhatsApp**.
@@ -52,10 +46,9 @@
 ---
 
 **🎯 Próximos Objetivos sugeridos:**
-1.  **Respuestas de Voz Automáticas (TTS)**: Que el bot pueda *enviar* audios reales (voces humanas de Microsoft o Google) al responder, manteniendo el costo en $0. 🗣️
-2.  **Dashboard de Analíticas**: Gráficos sencillos para ver cuántos mensajes y leads se generan por día. 📈
-3.  **Exportación de Leads**: Botón para descargar la lista de interesados en Excel/CSV. 📄
+1.  **Dashboard de Analíticas**: Gráficos sencillos para ver cuántos mensajes y leads se generan por día. 📈
+2.  **Exportación de Leads**: Botón para descargar la lista de interesados en Excel/CSV. 📄
 
 ---
 
-**🚀 Estado Actual: Operativo y en desarrollo de Voz.**
+**🚀 Estado Actual: Operativo y Estable.**

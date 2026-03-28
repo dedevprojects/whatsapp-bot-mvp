@@ -176,7 +176,7 @@ app.get('/', (req, res) => {
             <div class="logo">PLUS<span>BOT</span></div>
         </div>
         <div style="display:flex; gap:15px; align-items:center;">
-            <a href="mailto:agenciagolweb@gmail.com" class="btn-panel" style="background:transparent; border:1px solid rgba(255,255,255,0.4);">📧 Email</a>
+            <a href="#leads" class="btn-panel" style="background:transparent; border:1px solid rgba(255,255,255,0.4);">📧 Contacto</a>
             <a href="/login" class="btn-panel" style="background:var(--wa-bright); border:none; color:#002D1E;">Acceso 💬</a>
         </div>
     </div>
@@ -252,15 +252,15 @@ app.get('/', (req, res) => {
             </form>
             <div id="st" style="margin-top:2rem; font-weight:700; font-size:1.2rem;"></div>
             <p style="margin-top: 3rem; color: #777; font-size: 0.95rem; border-top: 1px solid #eee; padding-top: 2rem;">
-                ¿Prefieres conversar por correo? <br>
-                <a href="mailto:agenciagolweb@gmail.com?subject=Consulta sobre Plusbot" style="color: var(--wa-deep-green); text-decoration: none; font-weight: 700; font-size: 1.1rem;">📧 agenciagolweb@gmail.com</a>
+                ¿Prefieres conversar? <br>
+                <a href="#leads" style="color: var(--wa-deep-green); text-decoration: none; font-weight: 700; font-size: 1.1rem;">📲 Déjanos tu contacto</a>
             </p>
         </div>
     </section>
 
     <footer>
         <p>&copy; 2026 Plusbot AI Global. Hecho con ❤️ para potenciar negocios.</p>
-        <p style="margin-top:10px; font-size:0.85rem; opacity:0.5;">Soporte: agenciagolweb@gmail.com</p>
+        <p style="margin-top:10px; font-size:0.85rem; opacity:0.5;">Plusbot Global Support</p>
     </footer>
 
     <script>
@@ -352,10 +352,9 @@ app.get('/', (req, res) => {
                 if(r.ok) { 
                     st.style.color='#2ecc71'; 
                     st.innerText='¡Listo! ✅ Guardamos tus datos. Abriendo tu correo para el contacto final...'; 
-                    const mailtoUrl = 'mailto:agenciagolweb@gmail.com?subject=Interés en Plusbot: ' + data.business_name + '&body=Hola! Mi nombre es ' + data.contact_name + ' de ' + data.business_name + '. Email: ' + data.contact_email + '. Me gustaría activar mi Plusbot. Mi WhatsApp: ' + data.contact_number;
+                    const mailtoUrl = '#'; // removed for privacy
                     setTimeout(() => { 
-                        window.location.href = mailtoUrl;
-                        st.innerText = '¡Perfecto! ✅ Si no se abrió tu correo, escribe a agenciagolweb@gmail.com';
+                        st.innerText = '¡Perfecto! ✅ Gracias por tu interés.';
                     }, 2000);
                     e.target.reset(); 
                 }
@@ -518,6 +517,19 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
         const { data: leads } = await leadsQuery;
         const statuses = getStatus();
 
+        // --- Stats Calculation (Last 7 Days) ---
+        const last7Days = [];
+        for (let i = 6; i >= 0; i--) {
+            const d = new Date();
+            d.setDate(d.getDate() - i);
+            last7Days.push(d.toISOString().split('T')[0]);
+        }
+
+        const statsData = last7Days.map(day => {
+            const count = (leads || []).filter(l => l.created_at.startsWith(day)).length;
+            return { day, count };
+        });
+
         const bizRows = (businesses || []).map(biz => {
             const s = statuses[biz.whatsapp_number] || { connected: false };
             const statusLabel = s.connected ? 'CONECTADO' : 'DESCONECTADO';
@@ -548,15 +560,17 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Panel Plusbot</title>
+    <title>Panel Plusbot | Analytics</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@700&family=Inter:wght@400;600&display=swap" rel="stylesheet">
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
         body { font-family: 'Inter', sans-serif; background: #F4F7F6; margin: 0; padding: 0; }
-        header { background: #00593B; color: white; padding: 1rem 5%; display: flex; justify-content: space-between; align-items: center; }
+        header { background: #002D1E; color: white; padding: 1rem 5%; display: flex; justify-content: space-between; align-items: center; }
         .logo-box { display: flex; align-items: center; gap: 10px; font-family: 'Outfit'; font-size: 1.4rem; }
         .logo-box img { width: 30px; border-radius: 6px; }
         .container { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; padding: 2rem 5%; }
-        .card { background: white; border-radius: 20px; padding: 2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .card { background: white; border-radius: 20px; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .wide { grid-column: 1 / -1; }
         h2 { font-family: 'Outfit'; margin-top: 0; color: #00593B; font-size: 1.4rem; border-bottom: 2px solid #F4F7F6; padding-bottom: 1rem; margin-bottom: 1rem; }
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 1rem; border-bottom: 2px solid #F4F7F6; color: #999; font-size: 0.8rem; }
@@ -565,7 +579,6 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
         .btn-s:hover { opacity: 0.8; transform: translateY(-2px); }
         .lead-item { padding: 1.2rem; border-bottom: 1px solid #F4F7F6; transition: 0.2s; }
         .lead-item:hover { background: #F9FAFB; }
-        .lead-item:last-child { border: none; }
     </style>
 </head>
 <body>
@@ -577,6 +590,15 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
         </div>
     </header>
     <div class="container">
+        
+        <!-- Analytics Section -->
+        <div class="card wide">
+            <h2>Actividad Reciente (Últimos 7 días)</h2>
+            <div style="height: 250px; width:100%;">
+                <canvas id="leadsChart"></canvas>
+            </div>
+        </div>
+
         <div class="card">
             <h2>Gestión de Bots Activos</h2>
             <table>
@@ -584,12 +606,13 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
                 <tbody>${bizRows}</tbody>
             </table>
         </div>
+        
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom: 2px solid #F4F7F6; padding-bottom:1rem;">
-                <h2 style="margin:0; border:none; padding:0;">Interesados (Leads)</h2>
+                <h2 style="margin:0; border:none; padding:0;">Interesados</h2>
                 <a href="/dashboard/leads/export" class="btn-s" style="background:#3498db;">⬇️ CSV</a>
             </div>
-            <div style="max-height: 60vh; overflow-y: auto;">
+            <div style="max-height: 50vh; overflow-y: auto;">
                 ${leadRows || '<p style="color:#999; text-align:center; padding:2rem;">No hay interesados aún.</p>'}
             </div>
         </div>
@@ -598,8 +621,41 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
         async function reconnect(num) {
             if(!confirm('¿Desea reiniciar la sesión de ' + num + '?')) return;
             const r = await fetch('/api/reconnect/'+num, {method:'POST'});
-            if(r.ok) { alert('Comando de reinicio enviado con éxito.'); location.reload(); }
+            if(r.ok) { alert('Comando de reinicio enviado con éxito. Espera 10 segundos.'); location.reload(); }
         }
+
+        // --- Chart logic ---
+        const ctx = document.getElementById('leadsChart').getContext('2d');
+        const stats = ${JSON.stringify(statsData)};
+        
+        new Chart(ctx, {
+            type: 'line',
+            data: {
+                labels: stats.map(s => s.day),
+                datasets: [{
+                    label: 'Leads Capturados',
+                    data: stats.map(s => s.count),
+                    borderColor: '#25D366',
+                    backgroundColor: 'rgba(37, 211, 102, 0.1)',
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 6,
+                    pointBackgroundColor: '#fff',
+                    pointBorderColor: '#25D366'
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                scales: {
+                    y: { beginAtZero: true, grid: { display: false } },
+                    x: { grid: { display: false } }
+                },
+                plugins: {
+                    legend: { display: false }
+                }
+            }
+        });
     </script>
 </body>
 </html>`);
@@ -686,28 +742,6 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             </div>
 
             <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
-
-            <div class="form-group" style="background:#f0faf6; padding: 2rem; border-radius: 20px; border: 1px solid #d4ede3;">
-                <label style="color:#00593B; display:flex; align-items:center; gap:10px;">
-                    <input type="checkbox" name="tts_enabled" style="width:auto; margin:0;" ${biz.tts_enabled ? 'checked' : ''}>
-                    Activar Respuestas por Voz (TTS) 🎙️
-                </label>
-                <p class="hint">Si se activa, el bot enviará un audio con voz humana después de cada mensaje de texto. (Costo $0)</p>
-                
-                <div style="margin-top: 1.5rem;">
-                    <label>Elegir Voz del Bot</label>
-                    <select name="tts_voice" style="width:100%; padding:12px; border-radius:10px; border:1px solid #ccc;">
-                        <option value="es-MX-JorgeNeural" ${biz.tts_voice === 'es-MX-JorgeNeural' ? 'selected' : ''}>🇲🇽 Jorge (Hombre - México)</option>
-                        <option value="es-MX-DaliaNeural" ${biz.tts_voice === 'es-MX-DaliaNeural' ? 'selected' : ''}>🇲🇽 Dalia (Mujer - México)</option>
-                        <option value="es-ES-AlvaroNeural" ${biz.tts_voice === 'es-ES-AlvaroNeural' ? 'selected' : ''}>🇪🇸 Álvaro (Hombre - España)</option>
-                        <option value="es-ES-ElviraNeural" ${biz.tts_voice === 'es-ES-ElviraNeural' ? 'selected' : ''}>🇪🇸 Elvira (Mujer - España)</option>
-                        <option value="es-AR-TomasNeural" ${biz.tts_voice === 'es-AR-TomasNeural' ? 'selected' : ''}>🇦🇷 Tomás (Hombre - Argentina)</option>
-                        <option value="es-AR-ElenaNeural" ${biz.tts_voice === 'es-AR-ElenaNeural' ? 'selected' : ''}>🇦🇷 Elena (Mujer - Argentina)</option>
-                    </select>
-                </div>
-            </div>
-
-            <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
             
             <div class="form-group">
                 <label>🤖 Menú Interactivo (Opciones y Respuestas)</label>
@@ -788,7 +822,7 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
              return res.status(403).send('No tienes permiso');
         }
 
-        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password, tts_enabled, tts_voice } = req.body;
+        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password } = req.body;
         
         let menuJson = {};
         let respJson = {};
@@ -807,8 +841,7 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             website,
             welcome_message,
             access_password,
-            tts_enabled: tts_enabled === 'on',
-            tts_voice,
+
             menu_options: menuJson,
             responses: respJson,
             updated_at: new Date()

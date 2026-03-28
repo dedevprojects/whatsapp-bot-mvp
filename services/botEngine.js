@@ -9,7 +9,6 @@
 
 const supabase = require('../config/supabase');
 const { handleMessage } = require('../bot/messageHandler');
-const { generateTTS } = require('./tts');
 const logger = require('../utils/logger');
 
 /**
@@ -47,11 +46,13 @@ async function getRecentHistory(businessId, senderJid, limit = 6) {
         return [];
     }
 
-    // Return in chronological order
-    return data.reverse().map(m => ({
+    const history = data.reverse().map(m => ({
         role: m.direction,
         text: m.message_text
     }));
+
+    logger.info({ senderJid, messageCount: history.length }, 'History loaded from Supabase');
+    return history;
 }
 
 // Simple LRU-like in-process cache to avoid hammering Supabase on every message.
@@ -126,7 +127,7 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
     if (!fromMe) {
         // Log "media" if text is missing but media is present
         const logText = text || (mediaBuffer ? `[Media: ${mimeType}]` : "");
-        logMessage(business.id, senderJid, logText, 'inbound');
+        await logMessage(business.id, senderJid, logText, 'inbound');
     }
 
     // 2. Get recent history to provide context
@@ -139,22 +140,7 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
         // Send the text reply first
         await sendReply(senderJid, reply);
         logger.info({ senderJid, business: business.business_name }, 'Reply sent');
-        
-        // --- TTS Voice Reply (Zero Cost) ---
-        // If TTS is enabled for the business, also send the audio
-        if (business.tts_enabled) {
-            try {
-                const voice = business.tts_voice || 'es-MX-JorgeNeural';
-                const audioBuffer = await generateTTS(reply, voice);
-                
-                if (audioBuffer) {
-                    await sendReply(senderJid, audioBuffer, { mimetype: 'audio/mpeg', ptt: false }); 
-                    logger.info({ senderJid, business: business.business_name }, 'TTS Reply sent');
-                }
-            } catch (err) {
-                logger.error({ err }, 'Failed to send TTS reply');
-            }
-        }
+        // --- AI Response Sent (Text only) ---
         
         // Log outbound message (fire and forget)
         logMessage(business.id, senderJid, reply, 'outbound');
