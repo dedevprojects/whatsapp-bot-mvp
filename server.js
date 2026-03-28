@@ -743,6 +743,35 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
 
             <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
             
+            <div class="form-group" style="background:#f0fafe; padding:2rem; border-radius:24px; border:1px solid #e0eff5;">
+                <label style="color:#00593B; font-size:1.4rem;">📅 Configuración de Turnos</label>
+                <p class="hint">Activa esta opción para que el bot ofrezca horarios y gestione tu agenda automáticamente.</p>
+                
+                <div style="margin-top:2rem; display:grid; grid-template-columns: 1fr 1fr; gap:2rem;">
+                    <div>
+                        <label>Estado de la Agenda</label>
+                        <select name="booking_enabled" style="width:100%; padding:15px; border-radius:12px; border:2px solid #EEE;">
+                            <option value="true" ${biz.booking_enabled ? 'selected' : ''}>✅ Activo (Recibir turnos)</option>
+                            <option value="false" ${!biz.booking_enabled ? 'selected' : ''}>❌ Desactivado</option>
+                        </select>
+                    </div>
+                    <div>
+                        <label>Duración del Turno (minutos)</label>
+                        <input type="number" name="slot_duration" value="${biz.slot_duration || 30}" min="15" step="15" required>
+                    </div>
+                    <div>
+                        <label>Hora de Apertura</label>
+                        <input type="time" name="shift_start" value="${biz.shift_start || '09:00'}" required>
+                    </div>
+                    <div>
+                        <label>Hora de Cierre</label>
+                        <input type="time" name="shift_end" value="${biz.shift_end || '18:00'}" required>
+                    </div>
+                </div>
+            </div>
+
+            <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
+            
             <div class="form-group">
                 <label>🤖 Menú Interactivo (Opciones y Respuestas)</label>
                 <p class="hint">Define las opciones que el usuario verá al llegar (1, 2, 3...) y qué responderá el bot automáticamente.</p>
@@ -822,7 +851,8 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
              return res.status(403).send('No tienes permiso');
         }
 
-        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password } = req.body;
+        const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password,
+            booking_enabled, slot_duration, shift_start, shift_end } = req.body;
         
         let menuJson = {};
         let respJson = {};
@@ -844,6 +874,12 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
 
             menu_options: menuJson,
             responses: respJson,
+            
+            booking_enabled: booking_enabled === 'true',
+            slot_duration: parseInt(slot_duration),
+            shift_start,
+            shift_end,
+
             updated_at: new Date()
         }).eq('id', id);
 

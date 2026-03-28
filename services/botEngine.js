@@ -10,6 +10,7 @@
 const supabase = require('../config/supabase');
 const { handleMessage } = require('../bot/messageHandler');
 const logger = require('../utils/logger');
+const { getAvailableSlots, bookAppointment } = require('./appointmentService');
 
 /**
  * Logs a message to Supabase.
@@ -133,10 +134,49 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
         await logMessage(business.id, senderJid, logText, 'inbound');
     }
 
-    // 3. Handle message with context
-    const replies = await handleMessage({ senderJid, text, business, fromMe, history, mediaBuffer, mimeType });
+    // 3. (ADDITIVE) Check and Inject Appointment Availability
+    const augmentedBusiness = { ...business };
+    if (business.booking_enabled) {
+        try {
+            const today = new Date().toISOString().split('T')[0];
+            const slots = await getAvailableSlots(business, today);
+            
+            if (slots.length > 0) {
+                augmentedBusiness.knowledge_base = (business.knowledge_base || "") + 
+                    `\n--- AGENDA DE HOY (${today}) ---\nTenemos turnos disponibles a las: ${slots.join(', ')}. ` +
+                    `REGLA: Si el usuario desea un turno de los mostrados, confirma con la frase EXACTA: '¡Genial! Turno agendado para las HH:MM.'`;
+                logger.info({ business: business.business_name, slotsCount: slots.length }, 'Availability injected into context');
+            }
+        } catch (err) {
+            logger.error({ err }, 'Failed to inject availability context');
+        }
+    }
+
+    // 4. Handle message with context (Using augmented business for AI, but logging remains stable)
+    const replies = await handleMessage({ senderJid, text, business: augmentedBusiness, fromMe, history, mediaBuffer, mimeType });
 
     for (const reply of replies) {
+        // (ADDITIVE) Booking Detection Logic
+        if (reply.includes('Turno agendado para las')) {
+            const timeMatch = reply.match(/(\d{2}:\d{2})/);
+            if (timeMatch) {
+                const bookedTime = timeMatch[1];
+                const appointmentDate = new Date().toISOString().split('T')[0];
+                const isoDateTime = `${appointmentDate}T${bookedTime}:00Z`;
+                
+                try {
+                    await bookAppointment({
+                        businessId: business.id,
+                        contactName: 'Usuario WhatsApp', 
+                        contactNumber: senderJid.split('@')[0],
+                        isoDateTime
+                    });
+                    logger.info({ business: business.business_name, time: isoDateTime }, 'AI triggered automatic booking');
+                } catch (err) {
+                    logger.error({ err }, 'AI triggered booking failed to save to DB');
+                }
+            }
+        }
         // Send the text reply first
         await sendReply(senderJid, reply);
         logger.info({ senderJid, business: business.business_name }, 'Reply sent');

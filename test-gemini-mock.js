@@ -13,7 +13,7 @@ async function main() {
         
         console.log("Intentando llamar a Gemini con el historial simulado...");
         
-        const res = await getChatResponse({ text: 'Dime los horarios por favor', business, history });
+        const res = await getChatResponse({ text: 'Por 15 dolares puedo comprar alguna propiedad?', business, history });
         
         console.log("\n=====================\n[Resultado de la API]:", res);
     } catch (err) {

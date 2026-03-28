@@ -24,49 +24,47 @@ async function useSupabaseAuthState(whatsappNumber) {
         }
 
         if (data && data.data) {
-            // Revive session using Baileys' own BufferJSON utility
-            // We stringify the DB object first to ensure the reviver can handle the format
-            const sessionData = typeof data.data === 'string' ? data.data : JSON.stringify(data.data);
+            // Revive session structure. Supabase returns JSONB as an object.
+            // We stringify it and parse with reviver to restore Buffers.
+            const sessionData = JSON.stringify(data.data);
             const session = JSON.parse(sessionData, BufferJSON.reviver);
             creds = session.creds;
             keys = session.keys || {};
-            logger.info({ whatsappNumber }, 'Session loaded from Supabase');
+            logger.info({ whatsappNumber }, 'Session revived from Supabase');
         } else {
-            // Start fresh
             creds = initAuthCreds();
-            logger.info({ whatsappNumber }, 'Starting fresh session (none found in DB)');
+            logger.info({ whatsappNumber }, 'Starting fresh session (none in DB)');
         }
     } catch (err) {
         logger.error({ err, whatsappNumber }, 'Fatal error loading session from Supabase');
         creds = initAuthCreds();
     }
 
-    // 2. Debounced Saver helper
-    let timeout;
+    // 2. Saver helper (Direct)
     const saveSession = async () => {
+        try {
+            const jsonStr = JSON.stringify({ creds, keys }, BufferJSON.replacer);
+            const sessionToSave = JSON.parse(jsonStr);
+            
+            const { error } = await supabase
+                .from('whatsapp_sessions')
+                .upsert({
+                    whatsapp_number: whatsappNumber,
+                    data: sessionToSave,
+                    updated_at: new Date()
+                }, { onConflict: 'whatsapp_number' });
+            
+            if (error) throw error;
+        } catch (err) {
+            logger.error({ err, whatsappNumber }, 'Error saving session to Supabase');
+        }
+    };
+
+    // 3. Debounced version for frequent key updates
+    let timeout;
+    const debouncedSave = () => {
         if (timeout) clearTimeout(timeout);
-        
-        timeout = setTimeout(async () => {
-            try {
-                // Stringify with replacer to mark Buffers
-                const jsonStr = JSON.stringify({ creds, keys }, BufferJSON.replacer);
-                // Parse back to object so Supabase receives a JSONB-compatible object
-                const sessionToSave = JSON.parse(jsonStr);
-                
-                const { error } = await supabase
-                    .from('whatsapp_sessions')
-                    .upsert({
-                        whatsapp_number: whatsappNumber,
-                        data: sessionToSave,
-                        updated_at: new Date()
-                    }, { onConflict: 'whatsapp_number' });
-                
-                if (error) throw error;
-                // logger.debug({ whatsappNumber }, 'Session saved to Supabase (debounced)');
-            } catch (err) {
-                logger.error({ err, whatsappNumber }, 'Error saving session to Supabase during debounced save');
-            }
-        }, 3000); // 3 second debounce to avoid hitting Supabase too hard
+        timeout = setTimeout(saveSession, 2000);
     };
 
     return {
@@ -90,11 +88,12 @@ async function useSupabaseAuthState(whatsappNumber) {
                         if (!keys[type]) keys[type] = {};
                         Object.assign(keys[type], data[type]);
                     }
-                    await saveSession();
+                    debouncedSave();
                 }
             }
         },
         saveCreds: async () => {
+            // Creds are critical, save immediately and wait
             await saveSession();
         }
     };

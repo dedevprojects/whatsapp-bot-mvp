@@ -9,7 +9,6 @@ const {
     isJidBroadcast,
     isJidGroup,
     Browsers,
-    useMultiFileAuthState,
     downloadMediaMessage
 } = require('@whiskeysockets/baileys');
 const qrcode = require('qrcode-terminal');
@@ -29,12 +28,8 @@ const connections = new Map();
 // Map<whatsapp_number, string> - Stores the latest QR code string for unauthenticated sessions
 const qrCodes = new Map();
 
-const SESSIONS_DIR = path.resolve(process.cwd(), 'sessions');
+// No local sessions directory needed; we use Supabase for persistent auth
 
-/** Ensure the sessions root directory exists */
-if (!fs.existsSync(SESSIONS_DIR)) {
-    fs.mkdirSync(SESSIONS_DIR, { recursive: true });
-}
 
 /**
  * Creates and starts a WhatsApp socket for a given business.
