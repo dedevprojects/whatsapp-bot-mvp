@@ -771,6 +771,20 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                         <label>Duración del Turno (minutos)</label>
                         <input type="number" name="slot_duration" value="${biz.slot_duration || 30}" min="15" step="15" required>
                     </div>
+                    <div style="grid-column: span 2;">
+                        <label>Días de Atención</label>
+                        <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
+                            ${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d, i) => {
+                                const val = (i + 1) % 7; // 1-6=Mon-Sat, 0=Sun
+                                const isChecked = (biz.working_days || '1,2,3,4,5,6').split(',').includes(val.toString());
+                                return `
+                                    <label style="background:#FFF; border:2px solid ${isChecked ? '#25D366' : '#EEE'}; padding:10px 15px; border-radius:10px; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; gap:5px;">
+                                        <input type="checkbox" name="days" value="${val}" ${isChecked ? 'checked' : ''} style="width:auto; margin:0;"> ${d}
+                                    </label>
+                                `;
+                            }).join('')}
+                        </div>
+                    </div>
                     <div>
                         <label>Hora de Apertura</label>
                         <input type="text" name="shift_start" value="${(biz.shift_start || '09:00').slice(0, 5)}" placeholder="09:00" pattern="[0-9]{1,2}:[0-9]{2}" style="padding:15px; border-radius:12px; border:2px solid #EEE; width:100%;" required>
@@ -909,8 +923,13 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
         }
 
         const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password,
-            booking_enabled, slot_duration, shift_start, shift_end } = req.body;
+            booking_enabled, slot_duration, shift_start, shift_end, days } = req.body;
         
+        let workingDaysStr = '1,2,3,4,5,6';
+        if (days) {
+            workingDaysStr = Array.isArray(days) ? days.join(',') : days;
+        }
+
         let menuJson = {};
         let respJson = {};
         try {
@@ -936,6 +955,7 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             slot_duration: parseInt(slot_duration),
             shift_start,
             shift_end,
+            working_days: workingDaysStr,
 
             updated_at: new Date()
         }).eq('id', id);
