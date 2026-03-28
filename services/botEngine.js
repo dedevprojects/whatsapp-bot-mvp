@@ -161,17 +161,19 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 logger.warn({ business: business.business_name }, 'Slots check timed out or failed (Proceeding without slots)');
             }
             
-            augmentedBusiness.knowledge_base = (business.knowledge_base || "") + 
-                `\n--- REGLAS CRÍTICAS DE RESPUESTA ---\n` +
-                `- SIEMPRE que el usuario te salude o inicie charla, PRESENTA el menú: 1. Servicios 🛠️, 2. Precios 💰, 3. Turnos/Reservas 🗓️.\n` +
+            const menuRules = `\n--- REGLAS CRÍTICAS DE RESPUESTA (PRIORIDAD ALTA) ---\n` +
+                `- SI EL USUARIO TE SALUDA, PRESENTA SIEMPRE ESTE MENÚ COMPLETO: 1. Servicios 🛠️, 2. Precios 💰, 3. Turnos/Reservas 🗓️.\n` +
                 `- DÍAS DE ATENCIÓN: ${workingDaysLabels}.\n` +
                 `- HORARIOS: ${business.shift_start} a ${business.shift_end} (Turnos cada ${business.slot_duration} min).\n` +
                 `- HOY ES: ${dayName} ${todayISO}.\n` +
                 `- LIBRES HOY (${todayISO}): ${slotsToday.length > 0 ? slotsToday.join(', ') : 'Consultar disponibilidad'}.\n` +
-                `- SI PREGUNTAN POR TURNOS: Infórmales tus DÍAS y HORARIOS y pregúntales qué día desean agendar.\n` +
-                `- REGLA FINAL: Para agendar, responde SIEMPRE: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
+                `- SI PREGUNTAN POR TURNOS/RESERVAS: Infórmales tus DÍAS y HORARIOS y pregúntales qué día desean agendar.\n` +
+                `- REGLA FINAL: Para agendar, responde SIEMPRE: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'\n` +
+                `--------------------------------------------\n`;
+
+            augmentedBusiness.knowledge_base = menuRules + (business.knowledge_base || "");
             
-            logger.info({ business: business.business_name, dayName }, 'Menu-centric prompt enforced');
+            logger.info({ business: business.business_name, dayName }, 'Menu rules prepended for high priority');
         } catch (err) {
             logger.error({ err }, 'Failed to inject availability context (Non-blocking)');
         }
