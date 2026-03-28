@@ -162,18 +162,13 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     const isGreeting = isFirstContact || matchesGreeting;
 
     let dynamicMenu = buildMenu(business.menu_options);
-    if (!dynamicMenu || dynamicMenu.includes('Sin opciones') || dynamicMenu.includes('(Sin opciones')) {
+    
+    // Fallback parallel logic: if menu has less than 2 options or is missing or has "Sin opciones", we forcefully generate the full parallel structure
+    if (!business.menu_options || Object.keys(business.menu_options).length < 2 || dynamicMenu.includes('Sin opciones') || dynamicMenu.includes('(Sin opciones')) {
         dynamicMenu = `1️⃣ Servicios 🛠️\n2️⃣ Precios 💰\n3️⃣ Agendar Turno 🗓️`;
-    } else {
-        // Force numbers if they are missing in the dynamic menu
-        const menuLines = dynamicMenu.split('\n');
-        dynamicMenu = menuLines.map((line, idx) => {
-            if (/^[0-9]/.test(line.trim())) return line;
-            const emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'][idx] || `${idx + 1}.`;
-            return `${emoji} ${line}`;
-        }).join('\n');
     }
 
+    // Append Turno instruction ONLY if not already in the menu and booking is active
     if (business.booking_enabled && !dynamicMenu.toLowerCase().includes('turno') && !dynamicMenu.toLowerCase().includes('reserva')) {
         dynamicMenu += `\n\n🗓️ Para agendar un turno, simplemente escribe "Turno".`;
     }

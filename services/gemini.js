@@ -96,10 +96,24 @@ TU ADN COMO ASISTENTE (REGLAS INQUEBRANTABLES):
             business: business.business_name, 
             hasMedia: !!mediaBuffer,
             mimeType,
-            mediaSize: mediaBuffer?.length 
+            mediaSize: mediaBuffer?.length,
+            primaryModel: "gemini-2.5-flash"
         }, 'Calling Gemini API (Multimodal)');
 
-        const result = await model.generateContent({ contents });
+        let result;
+        try {
+            result = await model.generateContent({ contents });
+        } catch (apiErr) {
+            // If primary model 2.5-flash hits a quota exceeded error (429), silently fallback to flash-latest
+            if (apiErr.message && (apiErr.message.includes('429') || apiErr.message.includes('Quota'))) {
+                logger.warn({ business: business.business_name }, 'Quota exceeded on gemini-2.5-flash. Falling back to gemini-flash-latest to maintain conversational intelligence.');
+                const fallbackModel = ai.getGenerativeModel({ model: "gemini-flash-latest" });
+                result = await fallbackModel.generateContent({ contents });
+            } else {
+                throw apiErr; // Other errors get thrown normally
+            }
+        }
+
         const responseText = result.response.text();
 
         if (!responseText) {
@@ -109,7 +123,7 @@ TU ADN COMO ASISTENTE (REGLAS INQUEBRANTABLES):
         return responseText;
     } catch (error) {
         logger.error({ error: error.message, stack: error.stack }, 'Error calling Gemini API');
-        return 'Lo siento, tuve un pequeño problema procesando tu mensaje. Un humano te contactará pronto.';
+        return 'Lo siento, en este momento experimentamos alta demanda de consultas y no puedo procesar la tuya. Dejame que un asesor humano tome el control. ¿En qué más puedo ayudarte?';
     }
 }
 

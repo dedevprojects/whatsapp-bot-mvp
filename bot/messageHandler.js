@@ -59,7 +59,7 @@ async function handleMessage({ senderJid, senderName, text, business, fromMe = f
     }
 
     // Mark as welcomed if the AI successfully handled a media/text request
-    if (!session.welcomed) sessions.set(senderJid, { welcomes: true });
+    if (!session.welcomed) sessions.set(senderJid, { welcomed: true });
     return [aiResponse];
 }
 

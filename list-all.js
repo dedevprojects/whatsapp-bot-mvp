@@ -1,14 +1,25 @@
 require('dotenv').config();
-const supabase = require('./config/supabase');
+const { GoogleGenerativeAI } = require('@google/generative-ai');
 
-async function listAll() {
-    const { data: businesses, error: bErr } = await supabase.from('businesses').select('*');
-    if (bErr) console.error('Error businesses:', bErr);
-    else console.log('Businesses:', JSON.stringify(businesses, null, 2));
-
-    const { data: leads, error: lErr } = await supabase.from('leads').select('*');
-    if (lErr) console.error('Error leads:', lErr);
-    else console.log('Leads:', JSON.stringify(leads, null, 2));
+async function listModels() {
+    try {
+        const apiKey = process.env.GEMINI_API_KEY;
+        // In the newer SDK versions, we can just use REST to fetch models directly if listModels isn't exposed
+        const axios = require('axios');
+        const response = await axios.get(`https://generativelanguage.googleapis.com/v1beta/models?key=${apiKey}`);
+        
+        console.log("Available models:");
+        response.data.models.forEach(m => {
+            if (m.name.includes('gemini') && m.supportedGenerationMethods.includes('generateContent')) {
+                console.log(`- ${m.name}`);
+            }
+        });
+    } catch (e) {
+        console.error("Error fetching models:", e.message);
+        if (e.response) {
+            console.error("Status:", e.response.status);
+            console.error("Data:", e.response.data);
+        }
+    }
 }
-
-listAll();
+listModels();

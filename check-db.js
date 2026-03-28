@@ -1,28 +1,20 @@
 require('dotenv').config();
-const { createClient } = require('@supabase/supabase-js');
+const supabase = require('./config/supabase');
 
-const supabase = createClient(
-    process.env.SUPABASE_URL,
-    process.env.SUPABASE_KEY
-);
-
-async function checkTables() {
-    console.log('--- Database Check ---');
-    try {
-        const { error: bizError } = await supabase.from('businesses').select('*').limit(1);
-        console.log('Businesses table exists:', !bizError);
-        if (bizError) console.error('Businesses Error:', bizError.message);
+async function run() {
+    const { data, error } = await supabase
+        .from('messages')
+        .select('*')
+        .order('created_at', { ascending: false })
+        .limit(20);
         
-        const { error: leadsError } = await supabase.from('leads').select('*').limit(1);
-        console.log('Leads table exists:', !leadsError);
-        if (leadsError) console.error('Leads Error:', leadsError.message);
-
-        const { error: sessionsError } = await supabase.from('whatsapp_sessions').select('*').limit(1);
-        console.log('Sessions table exists:', !sessionsError);
-        if (sessionsError) console.error('Sessions Error:', sessionsError.message);
-    } catch (e) {
-        console.error('Fatal error checking tables:', e);
+    if (error) {
+        console.error(error);
+        return;
     }
+    
+    data.reverse().forEach(m => {
+        console.log(`[${m.direction}] ${m.message_text}`);
+    });
 }
-
-checkTables();
+run();

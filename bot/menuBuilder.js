@@ -26,13 +26,20 @@ function getNumberEmoji(num) {
  * @returns {string}
  */
 function buildMenu(menuOptions) {
-    if (!menuOptions || typeof menuOptions !== 'object') {
+    if (!menuOptions || typeof menuOptions !== 'object' || Object.keys(menuOptions).length === 0) {
         return '(Sin opciones de menú configuradas)';
     }
 
-    const lines = Object.entries(menuOptions)
-        .sort(([a], [b]) => parseInt(a, 10) - parseInt(b, 10))
-        .map(([key, label]) => `${getNumberEmoji(key)} ${label}`);
+    const lines = Object.values(menuOptions)
+        .filter(label => label && typeof label === 'string' && label.trim() !== '')
+        .map((label, idx) => {
+            const index = idx + 1;
+            return `${getNumberEmoji(index)} ${label.trim()}`;
+        });
+
+    if (lines.length === 0) {
+        return '(Sin opciones de menú configuradas)';
+    }
 
     return lines.join('\n');
 }
