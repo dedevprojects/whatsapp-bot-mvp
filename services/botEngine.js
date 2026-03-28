@@ -242,8 +242,13 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
             // Mix in the business responses so Gemini knows about specific option contents (prices, etc)
             let extraBusinessContext = "";
             if (business.responses) {
-                extraBusinessContext = "\n--- RESPUESTAS CONFIGURADAS ---\n" + 
-                    Object.entries(business.responses).map(([k, v]) => `Opción ${k}: ${v}`).join('\n') + "\n";
+                try {
+                    const parsedResponses = typeof business.responses === 'string' ? JSON.parse(business.responses) : business.responses;
+                    extraBusinessContext = "\n--- RESPUESTAS CONFIGURADAS ---\n" + 
+                        Object.entries(parsedResponses).map(([k, v]) => `Opción ${k}: ${v}`).join('\n') + "\n";
+                } catch (e) {
+                    extraBusinessContext = "\n--- RESPUESTAS CONFIGURADAS ---\n" + business.responses + "\n";
+                }
             }
 
             augmentedBusiness.knowledge_base = menuRules + extraBusinessContext + (business.knowledge_base || "");
