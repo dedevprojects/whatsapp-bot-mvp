@@ -672,6 +672,11 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
         }
 
         const { data: biz } = await supabase.from('businesses').select('*').eq('id', id).single();
+        const { data: appts } = await supabase.from('appointments')
+            .select('*')
+            .eq('business_id', id)
+            .gte('appointment_time', new Date().toISOString()) // Solo futuros
+            .order('appointment_time', { ascending: true });
         if (!biz) return res.redirect('/dashboard');
 
         res.send(`
@@ -768,6 +773,51 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                         <input type="text" name="shift_end" value="${biz.shift_end || '18:00'}" placeholder="18:00" pattern="[0-9]{1,2}:[0-9]{2}" style="padding:15px; border-radius:12px; border:2px solid #EEE; width:100%;" required>
                     </div>
                 </div>
+            </div>
+
+            <div class="appointments-section" style="background:#FFF; padding:2rem; border-radius:24px; border:1px solid #EEE; margin-top: 2rem;">
+                <label style="color:#00593B; font-size:1.4rem; display:block; margin-bottom:1.5rem;">📅 Próximos Turnos (Agenda)</label>
+                
+                ${appts && appts.length > 0 ? `
+                    <div style="overflow-x:auto;">
+                        <table style="width:100%; border-collapse:collapse; text-align:left;">
+                            <thead>
+                                <tr style="border-bottom:2px solid #F5F5F5; color:#666; font-size:0.9rem;">
+                                    <th style="padding:1rem;">CLIENTE</th>
+                                    <th style="padding:1rem;">WHATSAPP</th>
+                                    <th style="padding:1rem;">FECHA Y HORA</th>
+                                    <th style="padding:1rem;">ESTADO</th>
+                                    <th style="padding:1rem;">ACCIONES</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                ${appts.map(a => `
+                                    <tr style="border-bottom:1px solid #F9F9F9;">
+                                        <td style="padding:1rem;"><strong>${a.contact_name || 'Usuario'}</strong></td>
+                                        <td style="padding:1rem;">${a.contact_number}</td>
+                                        <td style="padding:1rem;">
+                                            <span style="background:#E6F7F0; color:#00593B; padding:5px 10px; border-radius:8px; font-weight:bold;">
+                                                ${new Date(a.appointment_time).toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                                            </span>
+                                        </td>
+                                        <td style="padding:1rem;"><span style="color:#28a745;">● Confirmado</span></td>
+                                        <td style="padding:1rem;">
+                                            <a href="/dashboard/appointments/cancel/${a.id}?biz=${id}" 
+                                               onclick="return confirm('¿Seguro que quieres cancelar este turno?')"
+                                               style="color:#DC3545; text-decoration:none; font-size:0.8rem; border:1px solid #DC3545; padding:4px 8px; border-radius:6px;">
+                                               Cancelar
+                                            </a>
+                                        </td>
+                                    </tr>
+                                `).join('')}
+                            </tbody>
+                        </table>
+                    </div>
+                ` : `
+                    <div style="text-align:center; padding:2rem; color:#999;">
+                        <p>No hay turnos próximos agendados todavía.</p>
+                    </div>
+                `}
             </div>
 
             <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
@@ -892,6 +942,24 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
         res.send(`<script>alert('¡Configuración actualizada! 🚀'); window.location.href='/dashboard';</script>`);
     } catch (e) { res.status(500).send('Error updating: ' + e.message); }
 });
+
+/** Route to cancel an appointment */
+app.get('/dashboard/appointments/cancel/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const { biz } = req.query;
+
+    const { error } = await supabase
+        .from('appointments')
+        .delete()
+        .eq('id', id);
+
+    if (error) {
+        logger.error({ error, id }, 'Failed to cancel appointment');
+    }
+    
+    res.redirect(`/dashboard/edit/${biz}`);
+});
+
 
 
 
