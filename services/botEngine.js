@@ -134,19 +134,21 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
         await logMessage(business.id, senderJid, logText, 'inbound');
     }
 
-    // 3. (ADDITIVE) Check and Inject Appointment Availability
+    // 3. (ADDITIVE) Check and Inject Appointment Availability & Rules
     const augmentedBusiness = { ...business };
     if (business.booking_enabled) {
         try {
             const today = new Date().toISOString().split('T')[0];
-            const slots = await getAvailableSlots(business, today);
+            const slotsToday = await getAvailableSlots(business, today);
             
-            if (slots.length > 0) {
-                augmentedBusiness.knowledge_base = (business.knowledge_base || "") + 
-                    `\n--- AGENDA DE HOY (${today}) ---\nTenemos turnos disponibles a las: ${slots.join(', ')}. ` +
-                    `REGLA: Si el usuario desea un turno de los mostrados, confirma con la frase EXACTA: '¡Genial! Turno agendado para las HH:MM.'`;
-                logger.info({ business: business.business_name, slotsCount: slots.length }, 'Availability injected into context');
-            }
+            augmentedBusiness.knowledge_base = (business.knowledge_base || "") + 
+                `\n--- REGLAS DE AGENDA (FORMATO 24 HS) ---\n` +
+                `- Horario: ${business.shift_start} a ${business.shift_end}. Turnos cada ${business.slot_duration} min.\n` +
+                `- LIBRES HOY (${today}): ${slotsToday.join(', ') || 'Todo ocupado hoy'}.\n` +
+                `- REGLA: Puedes ofrecer turnos para cualquier fecha futura. Atendemos Lunes a Viernes.\n` +
+                `- FORMATO DE CONFIRMACIÓN: Si confirmas un turno, usa EXACTAMENTE: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
+            
+            logger.info({ business: business.business_name }, 'Enhanced availability context injected');
         } catch (err) {
             logger.error({ err }, 'Failed to inject availability context');
         }
@@ -156,13 +158,13 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
     const replies = await handleMessage({ senderJid, text, business: augmentedBusiness, fromMe, history, mediaBuffer, mimeType });
 
     for (const reply of replies) {
-        // (ADDITIVE) Booking Detection Logic
-        if (reply.includes('Turno agendado para las')) {
-            const timeMatch = reply.match(/(\d{2}:\d{2})/);
-            if (timeMatch) {
-                const bookedTime = timeMatch[1];
-                const appointmentDate = new Date().toISOString().split('T')[0];
-                const isoDateTime = `${appointmentDate}T${bookedTime}:00Z`;
+        // (ADDITIVE) Booking Detection Logic (Capturing Date and Time)
+        if (reply.includes('Turno agendado para el')) {
+            const combinedMatch = reply.match(/(\d{4}-\d{2}-\d{2}).*?(\d{2}:\d{2})/);
+            if (combinedMatch) {
+                const bookedDate = combinedMatch[1];
+                const bookedTime = combinedMatch[2];
+                const isoDateTime = `${bookedDate}T${bookedTime}:00Z`;
                 
                 try {
                     await bookAppointment({
@@ -171,9 +173,9 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
                         contactNumber: senderJid.split('@')[0],
                         isoDateTime
                     });
-                    logger.info({ business: business.business_name, time: isoDateTime }, 'AI triggered automatic booking');
+                    logger.info({ business: business.business_name, time: isoDateTime }, 'AI triggered multi-date booking');
                 } catch (err) {
-                    logger.error({ err }, 'AI triggered booking failed to save to DB');
+                    logger.error({ err }, 'Booking failed to save to DB');
                 }
             }
         }
