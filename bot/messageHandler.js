@@ -52,20 +52,18 @@ async function handleMessage({ senderJid, text, business, fromMe = false, histor
 
     // ─── First contact or greeting keywords ───────────────────────────────────
     const isGreeting =
-        !session.welcomed ||
+        history.length === 0 ||
         ['hola', 'hi', 'hello', 'ola', 'buenas', 'inicio', 'start', 'menu', 'menú'].includes(
             normalizedText
         );
 
-    // If it's a greeting and NOT a media message, show the menu
     if (isGreeting && !mediaBuffer) {
-        sessions.set(senderJid, { welcomed: true });
-
         const menuText = buildMenu(business.menu_options);
         const welcomePart = business.welcome_message || '¡Bienvenido!';
+        const menuHeader = '\n\n*¿En qué te puedo ayudar?*\n';
 
         logger.debug({ senderJid, business: business.business_name }, 'Sending welcome + menu');
-        return [`${welcomePart}\n\n${menuText}`];
+        return [`${welcomePart}${menuHeader}\n${menuText}`];
     }
 
     // ─── Numeric option ────────────────────────────────────────────────────────

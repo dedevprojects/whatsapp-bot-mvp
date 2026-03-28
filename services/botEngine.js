@@ -123,15 +123,15 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
         return;
     }
 
-    // 1. Log inbound message (fire and forget)
+    // 1. Get recent history to provide context (BEFORE logging current message to avoid duplication in AI call)
+    const history = await getRecentHistory(business.id, senderJid);
+
+    // 2. Log inbound message (fire and forget)
     if (!fromMe) {
         // Log "media" if text is missing but media is present
         const logText = text || (mediaBuffer ? `[Media: ${mimeType}]` : "");
         await logMessage(business.id, senderJid, logText, 'inbound');
     }
-
-    // 2. Get recent history to provide context
-    const history = await getRecentHistory(business.id, senderJid);
 
     // 3. Handle message with context
     const replies = await handleMessage({ senderJid, text, business, fromMe, history, mediaBuffer, mimeType });
