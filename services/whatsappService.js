@@ -183,6 +183,7 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
 
                 await processMessage({
                     senderJid: remoteJid,
+                    senderName: msg.pushName || 'Usuario WhatsApp',
                     recipientJid,
                     text: finalContextText,
                     mediaBuffer: mediaData,

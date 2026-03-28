@@ -962,6 +962,7 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             slot_duration: parseInt(slot_duration),
             shift_start,
             shift_end,
+            working_days: workingDaysStr,
 
             updated_at: new Date()
         }).eq('id', id);

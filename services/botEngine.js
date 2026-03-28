@@ -113,7 +113,7 @@ function invalidateCache(whatsappNumber) {
  * @param {Function} params.sendReply    - Async function(jid, text) provided by whatsappService
  * @param {boolean} params.fromMe        - True if the message was sent FROM the bot itself
  */
-async function processMessage({ senderJid, recipientJid, text, mediaBuffer = null, mimeType = null, sendReply, fromMe = false }) {
+async function processMessage({ senderJid, senderName, recipientJid, text, mediaBuffer = null, mimeType = null, sendReply, fromMe = false }) {
     // Convert Baileys JID (e.g. "5491112345678:1@s.whatsapp.net") to E.164
     const rawNumber = recipientJid.split(':')[0].split('@')[0];
     const whatsappNumber = `+${rawNumber}`;
@@ -198,15 +198,21 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
                 const isoDateTime = `${bookedDate}T${bookedTime}:00Z`;
                 
                 try {
-                    // Ultra-clean numeric capture to avoid técnico IDs or system suffixes (:2, :3, etc)
+                    // Filter out non-numeric chars
                     const cleanClientNumber = senderJid.replace(/[^0-9]/g, '');
-                    await bookAppointment({
-                        businessId: business.id,
-                        contactName: 'Usuario WhatsApp', 
-                        contactNumber: cleanClientNumber,
-                        isoDateTime
-                    });
-                    logger.info({ business: business.business_name, time: isoDateTime }, 'AI confirmed booking saved to DB');
+                    
+                    // PREVENT SELF-BOOKING (If the number is the same as the business WhatsApp)
+                    if (cleanClientNumber === business.whatsapp_number.replace(/[^0-9]/g, '')) {
+                        logger.info('Skipping self-booking/internal chat');
+                    } else {
+                        await bookAppointment({
+                            businessId: business.id,
+                            contactName: senderName || 'Usuario WhatsApp', 
+                            contactNumber: cleanClientNumber,
+                            isoDateTime
+                        });
+                        logger.info({ business: business.business_name, time: isoDateTime }, 'AI confirmed booking saved to DB');
+                    }
                 } catch (err) {
                     logger.error({ err }, 'Background booking failed to save (non-blocking)');
                 }
