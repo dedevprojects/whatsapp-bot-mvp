@@ -60,10 +60,9 @@ async function handleMessage({ senderJid, text, business, fromMe = false, histor
     if (isGreeting && !mediaBuffer) {
         const menuText = buildMenu(business.menu_options);
         const welcomePart = business.welcome_message || '¡Bienvenido!';
-        const menuHeader = '\n\n*¿En qué te puedo ayudar?*\n';
 
         logger.debug({ senderJid, business: business.business_name }, 'Sending welcome + menu');
-        return [`${welcomePart}${menuHeader}\n${menuText}`];
+        return [`${welcomePart}\n\n${menuText}`];
     }
 
     // ─── Numeric option ────────────────────────────────────────────────────────
