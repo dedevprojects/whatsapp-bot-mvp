@@ -167,10 +167,12 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 `- ATENDEMOS LOS DÍAS: ${workingDaysLabels}.\n` +
                 `- HORARIO: ${business.shift_start} a ${business.shift_end}. Turnos cada ${business.slot_duration} min.\n` +
                 `- LIBRES HOY (${todayISO}): ${slotsToday.length > 0 ? slotsToday.join(', ') : 'Consultar disponibilidad'}.\n` +
-                `- REGLA: Puedes agendar para cualquier fecha futura dentro de mis días de atención. ` +
+                `- INSTRUCCIÓN DE SALUDO: Si el usuario te saluda por primera vez, presenta siempre un menú claro: 1. Servicios, 2. Precios, 3. Turnos/Reservas.\n` +
+                `- INSTRUCCIÓN DE TURNOS: Si el usuario pregunta por disponibilidad o 'turnos' de forma general, infórmale de tus DÍAS DE ATENCIÓN y HORARIOS, y pregúntale qué fecha desea agendar.\n` +
+                `- REGLA FINAL: Puedes agendar para cualquier fecha futura dentro de mis días de atención. ` +
                 `Si confirmas un turno, RESPONDE SIEMPRE con: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
             
-            logger.info({ business: business.business_name, dayName }, 'Context injected successfully');
+            logger.info({ business: business.business_name, dayName }, 'High-level prompt injected');
         } catch (err) {
             logger.error({ err }, 'Failed to inject availability context (Non-blocking)');
         }
