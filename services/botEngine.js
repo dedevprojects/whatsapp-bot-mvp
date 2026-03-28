@@ -143,29 +143,35 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
             const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             const dayName = dayNames[now.getDay()];
             
+            // Map working_days string to actual names for the AI
+            const workingDaysArr = (business.working_days || '1,2,3,4,5,6').split(',');
+            const workingDaysLabels = workingDaysArr.map(d => dayNames[d]).join(', ');
+            
             const slotsToday = await getAvailableSlots(business, todayISO);
             
             augmentedBusiness.knowledge_base = (business.knowledge_base || "") + 
-                `\n--- REGLAS DE AGENDA (FORMATO 24 HS) ---\n` +
+                `\n--- REGLAS DE AGENDA (24 HS) ---\n` +
                 `- HOY ES: ${dayName} ${todayISO}.\n` +
-                `- Horario: ${business.shift_start} a ${business.shift_end}. Turnos cada ${business.slot_duration} min.\n` +
+                `- ATENDEMOS LOS DÍAS: ${workingDaysLabels}.\n` +
+                `- HORARIO: ${business.shift_start} a ${business.shift_end}. Turnos cada ${business.slot_duration} min.\n` +
                 `- LIBRES HOY (${todayISO}): ${slotsToday.join(', ') || 'Todo ocupado hoy'}.\n` +
-                `- REGLA: Si confirmas un turno, RESPONDE SIEMPRE con: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
+                `- REGLA: Puedes agendar para cualquier fecha futura dentro de mis días de atención. ` +
+                `Si confirmas un turno, RESPONDE SIEMPRE con: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
             
-            logger.info({ business: business.business_name }, 'Enhanced availability context with day awareness injected');
+            logger.info({ business: business.business_name, dayName }, 'Full multi-day context injected');
         } catch (err) {
             logger.error({ err }, 'Failed to inject availability context');
         }
     }
 
-    // 4. Handle message with context (Using augmented business for AI, but logging remains stable)
+    // 4. Handle message (Using augmented business, stable AI call)
     const replies = await handleMessage({ senderJid, text, business: augmentedBusiness, fromMe, history, mediaBuffer, mimeType });
 
     for (const reply of replies) {
-        // Send the text reply first (MANDATORY TO AVOID SILENCE)
+        // --- 1. ALWAYS SEND THE REPLY TO WHATSAPP FIRST (Stability Priority) ---
         await sendReply(senderJid, reply);
         
-        // (ADDITIVE) Booking Detection Logic (Capturing Date and Time)
+        // --- 2. (ADDITIVE) If booking detected, store in DB silently ---
         if (reply.includes('Turno agendado para el')) {
             const combinedMatch = reply.match(/(\d{4}-\d{2}-\d{2}).*?(\d{2}:\d{2})/);
             if (combinedMatch) {
@@ -181,17 +187,14 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
                         contactNumber: cleanClientNumber,
                         isoDateTime
                     });
-                    logger.info({ business: business.business_name, time: isoDateTime }, 'AI triggered precise booking');
+                    logger.info({ business: business.business_name, time: isoDateTime }, 'AI confirmed booking saved to DB');
                 } catch (err) {
-                    logger.error({ err }, 'Booking failed to save to DB');
+                    logger.error({ err }, 'Background booking failed to save (non-blocking)');
                 }
             }
         }
         
-        logger.info({ senderJid, business: business.business_name }, 'Reply sent');
-        // --- AI Response Sent (Text only) ---
-        
-        // Log outbound message (fire and forget)
+        // Log log
         logMessage(business.id, senderJid, reply, 'outbound');
     }
 }
