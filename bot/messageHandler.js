@@ -48,42 +48,19 @@ async function handleMessage({ senderJid, senderName, text, business, fromMe = f
         return [];
     }
 
-    const normalizedText = (text || '').trim().toLowerCase();
-
-    // ─── First contact or greeting keywords ───────────────────────────────────
-    const isGreeting =
-        history.length === 0 ||
-        ['hola', 'hi', 'hello', 'ola', 'buenas', 'inicio', 'start', 'menu', 'menú'].includes(
-            normalizedText
-        );
-
-    if (isGreeting && !mediaBuffer) {
-        const menuText = buildMenu(business.menu_options);
-        const welcomePart = business.welcome_message || '¡Bienvenido!';
-
-        logger.debug({ senderJid, business: business.business_name }, 'Sending welcome + menu');
-        return [`${welcomePart}\n\n${menuText}`];
-    }
-
-    // ─── Numeric option ────────────────────────────────────────────────────────
-    if (business.responses && business.responses[normalizedText]) {
-        logger.debug({ senderJid, option: normalizedText }, 'Matched menu option');
-        return [business.responses[normalizedText]];
-    }
-
     // ─── Gemini AI Fallback (Multimodal) ──────────────────────────────────────
     logger.debug({ senderJid, hasMedia: !!mediaBuffer }, 'Calling Gemini AI');
     
     // Pass history and media to AI for contextual responses
-    const aiResponse = await getChatResponse({ text, senderName, business, history, mediaBuffer, mimeType });
+    let aiResponse = await getChatResponse({ text, senderName, business, history, mediaBuffer, mimeType });
     
-    if (aiResponse) {
-        // Mark as welcomed if the AI successfully handled a media/text request
-        if (!session.welcomed) sessions.set(senderJid, { welcomed: true });
-        return [aiResponse];
+    if (!aiResponse || aiResponse.trim() === '') {
+        aiResponse = 'Lo siento, no pude procesar eso en este momento. Dejame que un asesor tome tu consulta. ¿En qué más puedo ayudarte?';
     }
 
-    return [];
+    // Mark as welcomed if the AI successfully handled a media/text request
+    if (!session.welcomed) sessions.set(senderJid, { welcomes: true });
+    return [aiResponse];
 }
 
 /**

@@ -114,7 +114,7 @@ function invalidateCache(whatsappNumber) {
  * @param {Function} params.sendReply    - Async function(jid, text) provided by whatsappService
  * @param {boolean} params.fromMe        - True if the message was sent FROM the bot itself
  */
-async function processMessage({ senderJid, senderName, recipientJid, text, mediaBuffer = null, mimeType = null, sendReply, fromMe = false }) {
+async function processMessage({ senderJid, senderName, recipientJid, text, mediaBuffer = null, mimeType = null, sendReply, fromMe = false, messageId = "" }) {
     // Convert Baileys JID (e.g. "5491112345678:1@s.whatsapp.net") to E.164
     const rawNumber = recipientJid.split(':')[0].split('@')[0];
     const whatsappNumber = `+${rawNumber}`;
@@ -126,9 +126,16 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     }
 
     // 1. --- HUMAN INTERVENTION DETECTION (FROM ME) ---
-    // If the message is from the bot/human phone, update the silence session and stop.
     if (fromMe) {
-        logger.debug({ senderJid }, 'Human/Bot interaction from phone detected. Updating session.');
+        // Robust echo filter: If the message originates from our bot API (usually starting with BAE5, 3EB0, or long strings), SKIP silencing the session.
+        // Human messages sent from the phone/web usually have shorter/distinct IDs (like 3A... in newer versions).
+        const isBotEcho = messageId.startsWith('BAE5') || messageId.startsWith('3EB0') || messageId.length > 21;
+        if (isBotEcho) {
+            logger.debug({ senderJid, messageId }, 'Ignoring bot echo message identified by ID.');
+            return;
+        }
+
+        logger.debug({ senderJid, messageId }, 'Human interaction from physical phone detected. Silencing bot.');
         await handleMessage({ senderJid, text, business, fromMe: true, history: [] });
         return;
     }
@@ -155,14 +162,26 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     const isGreeting = isFirstContact || matchesGreeting;
 
     let dynamicMenu = buildMenu(business.menu_options);
-    if (!dynamicMenu || dynamicMenu.includes('Sin opciones')) {
+    if (!dynamicMenu || dynamicMenu.includes('Sin opciones') || dynamicMenu.includes('(Sin opciones')) {
         dynamicMenu = `1️⃣ Servicios 🛠️\n2️⃣ Precios 💰\n3️⃣ Agendar Turno 🗓️`;
-    } else if (business.booking_enabled && !dynamicMenu.toLowerCase().includes('turno') && !dynamicMenu.toLowerCase().includes('reserva')) {
+    } else {
+        // Force numbers if they are missing in the dynamic menu
+        const menuLines = dynamicMenu.split('\n');
+        dynamicMenu = menuLines.map((line, idx) => {
+            if (/^[0-9]/.test(line.trim())) return line;
+            const emoji = ['1️⃣', '2️⃣', '3️⃣', '4️⃣', '5️⃣'][idx] || `${idx + 1}.`;
+            return `${emoji} ${line}`;
+        }).join('\n');
+    }
+
+    if (business.booking_enabled && !dynamicMenu.toLowerCase().includes('turno') && !dynamicMenu.toLowerCase().includes('reserva')) {
         dynamicMenu += `\n\n🗓️ Para agendar un turno, simplemente escribe "Turno".`;
     }
 
     // A. Handle Greetings/Initial Contact
-    if (isGreeting && !mediaBuffer) {
+    // Only intercept if it's JUST a greeting. If it has more content, let AI handle it.
+    const isJustGreeting = greetings.includes(rawText);
+    if ((isFirstContact || isJustGreeting) && !mediaBuffer) {
         // Build the menu based on MUST HAVE options AND business options
         const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${dynamicMenu}`;
         await sendReply(senderJid, finalGreeting);
@@ -171,28 +190,29 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     }
 
     // B. Handle Numeric Options (優先順位: Business Responses > Fixed Logic)
-    // We check if the business has a response for this number.
-    if (business.responses && business.responses[cleanNumberText]) {
-        const responseText = business.responses[cleanNumberText];
+    // We check if the business has a response for this EXACT number.
+    const isExactNumber = /^[0-9]+$/.test(rawText);
+    if (isExactNumber && business.responses && business.responses[rawText]) {
+        const responseText = business.responses[rawText];
         await sendReply(senderJid, responseText);
         await logMessage(business.id, senderJid, responseText, 'outbound');
         return;
     }
 
     // Fallback fixed logic for 1, 2, 3 if business doesn't have them
-    if (cleanNumberText === "1") {
+    if (rawText === "1" || rawText === "servicios" || rawText === "servicio") {
         const servicesText = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${dynamicMenu}`;
         await sendReply(senderJid, servicesText);
         await logMessage(business.id, senderJid, servicesText, 'outbound');
         return;
     }
-    if (cleanNumberText === "2") {
+    if (rawText === "2" || rawText === "precios" || rawText === "precio" || rawText === "costo" || rawText === "valor") {
         const pricesText = `💰 *Nuestros Precios:*\n\n${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${dynamicMenu}`;
         await sendReply(senderJid, pricesText);
         await logMessage(business.id, senderJid, pricesText, 'outbound');
         return;
     }
-    if (cleanNumberText === "3") {
+    if (rawText === "3" || rawText === "turno" || rawText === "turnos") {
         const now = new Date();
         const todayISO = now.toISOString().split('T')[0];
         const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];

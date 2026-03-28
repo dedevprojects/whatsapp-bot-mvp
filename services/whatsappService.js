@@ -189,7 +189,8 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                     mediaBuffer: mediaData,
                     mimeType: mimeType,
                     sendReply: (jid, content, options) => sendMessage(sock, jid, content, options),
-                    fromMe: !!msg.key.fromMe
+                    fromMe: !!msg.key.fromMe,
+                    messageId: messageId
                 });
             } catch (err) {
                 logger.error({ err, msgId: msg.key.id }, 'Error processing message');

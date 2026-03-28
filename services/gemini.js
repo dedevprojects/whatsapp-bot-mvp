@@ -108,7 +108,7 @@ TU ADN COMO ASISTENTE (REGLAS INQUEBRANTABLES):
 
         return responseText;
     } catch (error) {
-        logger.error({ error: error.message }, 'Error calling Gemini API');
+        logger.error({ error: error.message, stack: error.stack }, 'Error calling Gemini API');
         return 'Lo siento, tuve un pequeño problema procesando tu mensaje. Un humano te contactará pronto.';
     }
 }
