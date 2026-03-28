@@ -148,14 +148,37 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
         return; // EXIT EARLY
     }
 
-    // 2.1 NUMBER SELECTOR (Guiding AI based on menu choice)
-    let extraContext = "";
+    // 2.1 DETERMINISTIC PATHS (Instant responses for 1, 2, 3)
     const cleanText = text.trim();
-    if (cleanText === "1") extraContext = "\n- EL USUARIO ELIGIÓ 'SERVICIOS'. Por favor, detalla nuestros servicios principales basados en tu descripción y base de conocimientos.";
-    if (cleanText === "2") extraContext = "\n- EL USUARIO ELIGIÓ 'PRECIOS'. Por favor, informa los precios y costos basados estrictamente en tu base de conocimientos.";
-    if (cleanText === "3") extraContext = "\n- EL USUARIO ELIGIÓ 'TURNOS'. Por favor, ofrece agendar un turno e informa nuestros días y horarios de atención.";
+    if (cleanText === "1") {
+        const servicesMsg = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${fixedMenu}`;
+        await sendReply(senderJid, servicesMsg);
+        logMessage(business.id, senderJid, servicesMsg, 'outbound');
+        return;
+    }
+    if (cleanText === "2") {
+        const pricesMsg = `💰 *Nuestros Precios:*\n\n${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${fixedMenu}`;
+        await sendReply(senderJid, pricesMsg);
+        logMessage(business.id, senderJid, pricesMsg, 'outbound');
+        return;
+    }
+    if (cleanText === "3") {
+        const now = new Date();
+        const todayISO = now.toISOString().split('T')[0];
+        const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+        const dayName = dayNames[now.getDay()];
+        let workingDaysLabels = 'Lunes a Sábado';
+        try {
+            const workingDaysRaw = business.working_days || '1,2,3,4,5,6';
+            const workingDaysArr = typeof workingDaysRaw === 'string' ? workingDaysRaw.split(',') : (Array.isArray(workingDaysRaw) ? workingDaysRaw : []);
+            if (workingDaysArr.length > 0) workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'día hábil').join(', ');
+        } catch(e){}
 
-    // 3. (ADDITIVE) Check and Inject Appointment Availability & Rules
+        const turnsMsg = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorario: ${business.shift_start} a ${business.shift_end}\n\n*Para reservar, simplemente escribe el día y la hora que prefieres.* (Ej: El Miércoles a las 10:00)`;
+        await sendReply(senderJid, turnsMsg);
+        logMessage(business.id, senderJid, turnsMsg, 'outbound');
+        return;
+    }
     const augmentedBusiness = { ...business };
     if (business.booking_enabled) {
         try {
@@ -182,7 +205,7 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 logger.warn({ business: business.business_name }, 'Slots check timed out (Non-blocking)');
             }
             
-            const menuRules = `\n--- REGLAS CRÍTICAS DE RESPUESTA ---${extraContext}\n` +
+            const menuRules = `\n--- REGLAS CRÍTICAS DE RESPUESTA ---\n` +
                 `- SIEMPRE QUE TE SALUDEN O ESTÉS EN DUDA, PRESENTA ESTE MENÚ: 1. Servicios 🛠️, 2. Precios 💰, 3. Turnos/Reservas 🗓️.\n` +
                 `- DÍAS DE ATENCIÓN: ${workingDaysLabels}.\n` +
                 `- HORARIOS: ${business.shift_start} a ${business.shift_end}.\n` +
