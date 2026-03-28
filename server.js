@@ -766,11 +766,11 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                     </div>
                     <div>
                         <label>Hora de Apertura</label>
-                        <input type="text" name="shift_start" value="${biz.shift_start || '09:00'}" placeholder="09:00" pattern="[0-9]{1,2}:[0-9]{2}" style="padding:15px; border-radius:12px; border:2px solid #EEE; width:100%;" required>
+                        <input type="text" name="shift_start" value="${(biz.shift_start || '09:00').slice(0, 5)}" placeholder="09:00" pattern="[0-9]{1,2}:[0-9]{2}" style="padding:15px; border-radius:12px; border:2px solid #EEE; width:100%;" required>
                     </div>
                     <div>
                         <label>Hora de Cierre</label>
-                        <input type="text" name="shift_end" value="${biz.shift_end || '18:00'}" placeholder="18:00" pattern="[0-9]{1,2}:[0-9]{2}" style="padding:15px; border-radius:12px; border:2px solid #EEE; width:100%;" required>
+                        <input type="text" name="shift_end" value="${(biz.shift_end || '18:00').slice(0, 5)}" placeholder="18:00" pattern="[0-9]{1,2}:[0-9]{2}" style="padding:15px; border-radius:12px; border:2px solid #EEE; width:100%;" required>
                     </div>
                 </div>
             </div>
