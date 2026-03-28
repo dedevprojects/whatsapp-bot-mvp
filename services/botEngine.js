@@ -143,10 +143,18 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
             const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             const dayName = dayNames[now.getDay()];
             
-            // Map working_days string to actual names for the AI (Handling both String and Array formats)
-            const workingDaysRaw = business.working_days || '1,2,3,4,5,6';
-            const workingDaysArr = String(workingDaysRaw).split(',');
-            const workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'Lunes a Sábado').join(', ');
+            // Map working_days string to actual names for the AI (Handling both String and Array formats safely)
+            let workingDaysLabels = 'Lunes a Sábado';
+            try {
+                const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                const workingDaysRaw = business.working_days || '1,2,3,4,5,6';
+                const workingDaysArr = typeof workingDaysRaw === 'string' ? workingDaysRaw.split(',') : (Array.isArray(workingDaysRaw) ? workingDaysRaw : []);
+                if (workingDaysArr.length > 0) {
+                    workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'día hábil').join(', ');
+                }
+            } catch (e) {
+                logger.error({ e }, 'Error parsing working days, using fallback');
+            }
             
             const slotsToday = await getAvailableSlots(business, todayISO);
             
@@ -159,14 +167,20 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
                 `- REGLA: Puedes agendar para cualquier fecha futura dentro de mis días de atención. ` +
                 `Si confirmas un turno, RESPONDE SIEMPRE con: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
             
-            logger.info({ business: business.business_name, dayName }, 'Full multi-day context injected');
+            logger.info({ business: business.business_name, dayName }, 'Context injected successfully');
         } catch (err) {
-            logger.error({ err }, 'Failed to inject availability context');
+            logger.error({ err }, 'Failed to inject availability context (Non-blocking)');
         }
     }
 
     // 4. Handle message (Using augmented business, stable AI call)
-    const replies = await handleMessage({ senderJid, text, business: augmentedBusiness, fromMe, history, mediaBuffer, mimeType });
+    let replies = [];
+    try {
+        replies = await handleMessage({ senderJid, text, business: augmentedBusiness, fromMe, history, mediaBuffer, mimeType });
+    } catch (err) {
+        logger.error({ err }, 'AI handleMessage failed');
+        replies = ['Disculpa, estoy teniendo un problema técnico momentáneo. ¿Podrías repetirme tu consulta?'];
+    }
 
     for (const reply of replies) {
         // --- 1. ALWAYS SEND THE REPLY TO WHATSAPP FIRST (Stability Priority) ---
