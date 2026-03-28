@@ -162,17 +162,16 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
             }
             
             augmentedBusiness.knowledge_base = (business.knowledge_base || "") + 
-                `\n--- REGLAS DE AGENDA (24 HS) ---\n` +
+                `\n--- REGLAS CRÍTICAS DE RESPUESTA ---\n` +
+                `- SIEMPRE que el usuario te salude o inicie charla, PRESENTA el menú: 1. Servicios 🛠️, 2. Precios 💰, 3. Turnos/Reservas 🗓️.\n` +
+                `- DÍAS DE ATENCIÓN: ${workingDaysLabels}.\n` +
+                `- HORARIOS: ${business.shift_start} a ${business.shift_end} (Turnos cada ${business.slot_duration} min).\n` +
                 `- HOY ES: ${dayName} ${todayISO}.\n` +
-                `- ATENDEMOS LOS DÍAS: ${workingDaysLabels}.\n` +
-                `- HORARIO: ${business.shift_start} a ${business.shift_end}. Turnos cada ${business.slot_duration} min.\n` +
                 `- LIBRES HOY (${todayISO}): ${slotsToday.length > 0 ? slotsToday.join(', ') : 'Consultar disponibilidad'}.\n` +
-                `- INSTRUCCIÓN DE SALUDO: Si el usuario te saluda por primera vez, presenta siempre un menú claro: 1. Servicios, 2. Precios, 3. Turnos/Reservas.\n` +
-                `- INSTRUCCIÓN DE TURNOS: Si el usuario pregunta por disponibilidad o 'turnos' de forma general, infórmale de tus DÍAS DE ATENCIÓN y HORARIOS, y pregúntale qué fecha desea agendar.\n` +
-                `- REGLA FINAL: Puedes agendar para cualquier fecha futura dentro de mis días de atención. ` +
-                `Si confirmas un turno, RESPONDE SIEMPRE con: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
+                `- SI PREGUNTAN POR TURNOS: Infórmales tus DÍAS y HORARIOS y pregúntales qué día desean agendar.\n` +
+                `- REGLA FINAL: Para agendar, responde SIEMPRE: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
             
-            logger.info({ business: business.business_name, dayName }, 'High-level prompt injected');
+            logger.info({ business: business.business_name, dayName }, 'Menu-centric prompt enforced');
         } catch (err) {
             logger.error({ err }, 'Failed to inject availability context (Non-blocking)');
         }
