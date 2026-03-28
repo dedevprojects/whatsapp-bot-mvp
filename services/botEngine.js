@@ -143,9 +143,10 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
             const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             const dayName = dayNames[now.getDay()];
             
-            // Map working_days string to actual names for the AI
-            const workingDaysArr = (business.working_days || '1,2,3,4,5,6').split(',');
-            const workingDaysLabels = workingDaysArr.map(d => dayNames[d]).join(', ');
+            // Map working_days string to actual names for the AI (Handling both String and Array formats)
+            const workingDaysRaw = business.working_days || '1,2,3,4,5,6';
+            const workingDaysArr = String(workingDaysRaw).split(',');
+            const workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'Lunes a Sábado').join(', ');
             
             const slotsToday = await getAvailableSlots(business, todayISO);
             
