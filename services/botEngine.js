@@ -143,27 +143,30 @@ async function processMessage({ senderJid, recipientJid, text, mediaBuffer = nul
             const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
             const dayName = dayNames[now.getDay()];
             
-            // Map working_days string to actual names for the AI (Handling both String and Array formats safely)
+            // Map working_days string to actual names safely
             let workingDaysLabels = 'Lunes a Sábado';
-            try {
-                const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
-                const workingDaysRaw = business.working_days || '1,2,3,4,5,6';
-                const workingDaysArr = typeof workingDaysRaw === 'string' ? workingDaysRaw.split(',') : (Array.isArray(workingDaysRaw) ? workingDaysRaw : []);
-                if (workingDaysArr.length > 0) {
-                    workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'día hábil').join(', ');
-                }
-            } catch (e) {
-                logger.error({ e }, 'Error parsing working days, using fallback');
+            const workingDaysRaw = business.working_days || '1,2,3,4,5,6';
+            const workingDaysArr = typeof workingDaysRaw === 'string' ? workingDaysRaw.split(',') : (Array.isArray(workingDaysRaw) ? workingDaysRaw : []);
+            if (workingDaysArr.length > 0) {
+                workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'día hábil').join(', ');
             }
-            
-            const slotsToday = await getAvailableSlots(business, todayISO);
+
+            // Get available slots with a FAST TIMEOUT (max 2 seconds)
+            let slotsToday = [];
+            try {
+                const slotsPromise = getAvailableSlots(business, todayISO);
+                const timeoutPromise = new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 2000));
+                slotsToday = await Promise.race([slotsPromise, timeoutPromise]);
+            } catch (slotsErr) {
+                logger.warn({ business: business.business_name }, 'Slots check timed out or failed (Proceeding without slots)');
+            }
             
             augmentedBusiness.knowledge_base = (business.knowledge_base || "") + 
                 `\n--- REGLAS DE AGENDA (24 HS) ---\n` +
                 `- HOY ES: ${dayName} ${todayISO}.\n` +
                 `- ATENDEMOS LOS DÍAS: ${workingDaysLabels}.\n` +
                 `- HORARIO: ${business.shift_start} a ${business.shift_end}. Turnos cada ${business.slot_duration} min.\n` +
-                `- LIBRES HOY (${todayISO}): ${slotsToday.join(', ') || 'Todo ocupado hoy'}.\n` +
+                `- LIBRES HOY (${todayISO}): ${slotsToday.length > 0 ? slotsToday.join(', ') : 'Consultar disponibilidad'}.\n` +
                 `- REGLA: Puedes agendar para cualquier fecha futura dentro de mis días de atención. ` +
                 `Si confirmas un turno, RESPONDE SIEMPRE con: '¡Genial! Turno agendado para el AAAA-MM-DD a las HH:MM.'`;
             
