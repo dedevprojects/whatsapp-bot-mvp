@@ -776,7 +776,7 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                         <div style="display:flex; gap:10px; flex-wrap:wrap; margin-top:10px;">
                             ${['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Sáb', 'Dom'].map((d, i) => {
                                 const val = (i + 1) % 7; // 1-6=Mon-Sat, 0=Sun
-                                const isChecked = (biz.working_days || '1,2,3,4,5,6').split(',').includes(val.toString());
+                                const isChecked = String(biz.working_days || '1,2,3,4,5,6').split(',').includes(val.toString());
                                 return `
                                     <label style="background:#FFF; border:2px solid ${isChecked ? '#25D366' : '#EEE'}; padding:10px 15px; border-radius:10px; cursor:pointer; font-size:0.9rem; display:flex; align-items:center; gap:5px;">
                                         <input type="checkbox" name="days" value="${val}" ${isChecked ? 'checked' : ''} style="width:auto; margin:0;"> ${d}
