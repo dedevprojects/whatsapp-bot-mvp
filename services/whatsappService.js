@@ -140,6 +140,10 @@ async function connectBusiness(whatsappNumber, businessName = 'Unknown') {
                 const remoteJid = msg.key.remoteJid || '';
                 if (isJidBroadcast(remoteJid) || isJidGroup(remoteJid)) continue;
 
+                // Skip processing of messages sent by the bot's own API (echo events)
+                const isBaileysAPI = messageId.startsWith('BAE5') || messageId.startsWith('3EB0') || messageId.length > 21;
+                if (msg.key.fromMe && isBaileysAPI) continue;
+
                 const text =
                     msg.message?.conversation ||
                     msg.message?.extendedTextMessage?.text ||
