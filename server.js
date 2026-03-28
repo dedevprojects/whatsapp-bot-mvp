@@ -818,7 +818,11 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                                         <td style="padding:1rem;">${a.contact_number}</td>
                                         <td style="padding:1rem;">
                                             <span style="background:#E6F7F0; color:#00593B; padding:5px 10px; border-radius:8px; font-weight:bold;">
-                                                ${new Date(a.appointment_time).toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' })}
+                                                ${(() => {
+                                                    try {
+                                                        return new Date(a.appointment_time).toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
+                                                    } catch(e) { return 'Fecha no válida'; }
+                                                })()}
                                             </span>
                                         </td>
                                         <td style="padding:1rem;"><span style="color:#28a745;">● Confirmado</span></td>
@@ -910,7 +914,10 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
 </body>
 </html>
         `);
-    } catch (e) { res.status(500).send('Error loading edit page'); }
+    } catch (e) { 
+        logger.error({ err: e.message, stack: e.stack }, 'Fatal error on edit page');
+        res.status(500).send('Error loading edit page: ' + e.message); 
+    }
 });
 
 app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
