@@ -51,16 +51,7 @@ Pautas:
 - No inventes precios o servicios que no estén mencionados.
 - El usuario habla por WhatsApp, así que sé directo.
 `;
-
-        // Initialize model with system instruction (Optimized for Gemini 1.5 Pro/Flash)
-        const model = ai.getGenerativeModel({ 
-            model: "gemini-1.5-flash-latest",
-            systemInstruction: systemInstruction,
-            generationConfig: {
-                maxOutputTokens: 600,
-                temperature: 0.7,
-            }
-        });
+        const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 
         // Format history for Gemini
         let contents = [];
