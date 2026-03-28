@@ -124,45 +124,36 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
         return;
     }
 
-    // 1. Get recent history to provide context (BEFORE logging current message to avoid duplication in AI call)
-    const history = await getRecentHistory(business.id, senderJid);
-
-    // 2. Log inbound message (fire and forget)
-    if (!fromMe) {
-        // Log "media" if text is missing but media is present
-        const logText = text || (mediaBuffer ? `[Media: ${mimeType}]` : "");
-        await logMessage(business.id, senderJid, logText, 'inbound');
-    }
-
-    // 2. (ADDITIVE) GREETING DETECTOR & DETERMINISTIC MENU
-    const greetings = ['hola', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches', 'buenas', 'hola!', 'hola.', 'inicio', 'menu', 'menú'];
-    const isGreeting = greetings.includes(text.toLowerCase().trim());
+    // --- DETERMINISTIC FILTER (INSTANT RESPONSES) ---
+    const rawText = text.toLowerCase().trim();
+    const cleanNumberText = text.replace(/[^0-9]/g, '').trim(); // Captures "1", "1.", "1)" as "1"
     
-    // FORCED MENU (1. Servicios, 2. Precios, 3. Turnos)
+    const greetings = ['hola', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches', 'buenas', 'hola!', 'hola.', 'inicio', 'menu', 'menú'];
+    const isGreeting = greetings.includes(rawText);
     const fixedMenu = `1. Servicios 🛠️\n2. Precios 💰\n3. Agendar Turno 🗓️`;
 
+    // A. Handle Greetings
     if (isGreeting) {
         const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${fixedMenu}`;
         await sendReply(senderJid, finalGreeting);
         logMessage(business.id, senderJid, finalGreeting, 'outbound');
-        return; // EXIT EARLY
+        return;
     }
 
-    // 2.1 DETERMINISTIC PATHS (Instant responses for 1, 2, 3)
-    const cleanText = text.trim();
-    if (cleanText === "1") {
-        const servicesMsg = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${fixedMenu}`;
-        await sendReply(senderJid, servicesMsg);
-        logMessage(business.id, senderJid, servicesMsg, 'outbound');
+    // B. Handle Numeric Options (1=Servicios, 2=Precios, 3=Turnos)
+    if (cleanNumberText === "1") {
+        const servicesText = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${fixedMenu}`;
+        await sendReply(senderJid, servicesText);
+        logMessage(business.id, senderJid, servicesText, 'outbound');
         return;
     }
-    if (cleanText === "2") {
-        const pricesMsg = `💰 *Nuestros Precios:*\n\n${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${fixedMenu}`;
-        await sendReply(senderJid, pricesMsg);
-        logMessage(business.id, senderJid, pricesMsg, 'outbound');
+    if (cleanNumberText === "2") {
+        const pricesText = `💰 *Nuestros Precios:*\n\n${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${fixedMenu}`;
+        await sendReply(senderJid, pricesText);
+        logMessage(business.id, senderJid, pricesText, 'outbound');
         return;
     }
-    if (cleanText === "3") {
+    if (cleanNumberText === "3") {
         const now = new Date();
         const todayISO = now.toISOString().split('T')[0];
         const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -174,10 +165,19 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
             if (workingDaysArr.length > 0) workingDaysLabels = workingDaysArr.map(d => dayNames[parseInt(d)] || 'día hábil').join(', ');
         } catch(e){}
 
-        const turnsMsg = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorario: ${business.shift_start} a ${business.shift_end}\n\n*Para reservar, simplemente escribe el día y la hora que prefieres.* (Ej: El Miércoles a las 10:00)`;
-        await sendReply(senderJid, turnsMsg);
-        logMessage(business.id, senderJid, turnsMsg, 'outbound');
+        const turnsText = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorario: ${business.shift_start} a ${business.shift_end}\n\n*Para reservar, simplemente escribe el día y la hora que prefieres.* (Ej: El Miércoles a las 10:00)`;
+        await sendReply(senderJid, turnsText);
+        logMessage(business.id, senderJid, turnsText, 'outbound');
         return;
+    }
+
+    // 1. Get recent history to provide context (Only if not a simple menu path)
+    const history = await getRecentHistory(business.id, senderJid);
+
+    // 2. Log inbound message
+    if (!fromMe) {
+        const logText = text || (mediaBuffer ? `[Media: ${mimeType}]` : "");
+        await logMessage(business.id, senderJid, logText, 'inbound');
     }
     const augmentedBusiness = { ...business };
     if (business.booking_enabled) {
