@@ -134,6 +134,28 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
         await logMessage(business.id, senderJid, logText, 'inbound');
     }
 
+    // 2. (ADDITIVE) GREETING DETECTOR & DETERMINISTIC MENU
+    const greetings = ['hola', 'buen dia', 'buenos dias', 'buenas tardes', 'buenas noches', 'buenas', 'hola!', 'hola.', 'inicio', 'menu', 'menú'];
+    const isGreeting = greetings.includes(text.toLowerCase().trim());
+    
+    if (isGreeting) {
+        let menuStr = '';
+        if (business.menu_options) {
+             Object.entries(business.menu_options).forEach(([k, v]) => {
+                 menuStr += `${k}. ${v}\n`;
+             });
+        }
+        // Add Booking option automatically if enabled but not in menu
+        if (business.booking_enabled && !menuStr.includes('Turno')) {
+            menuStr += `${Object.keys(business.menu_options || {}).length + 1}. Agendar Turno 🗓️\n`;
+        }
+
+        const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${menuStr.trim()}`;
+        await sendReply(senderJid, finalGreeting);
+        logMessage(business.id, senderJid, finalGreeting, 'outbound');
+        return; // EXIT EARLY - NO AI NEEDED FOR GREETING
+    }
+
     // 3. (ADDITIVE) Check and Inject Appointment Availability & Rules
     const augmentedBusiness = { ...business };
     if (business.booking_enabled) {
