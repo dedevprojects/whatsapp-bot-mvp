@@ -163,8 +163,10 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
 
     let dynamicMenu = buildMenu(business.menu_options);
     
+    let isFallbackMenu = false;
     // Fallback parallel logic: if menu has less than 2 options or is missing or has "Sin opciones", we forcefully generate the full parallel structure
     if (!business.menu_options || Object.keys(business.menu_options).length < 2 || dynamicMenu.includes('Sin opciones') || dynamicMenu.includes('(Sin opciones')) {
+        isFallbackMenu = true;
         dynamicMenu = `1️⃣ Servicios 🛠️\n2️⃣ Precios 💰\n3️⃣ Agendar Turno 🗓️`;
     }
 
@@ -187,7 +189,7 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     // B. Handle Numeric Options (優先順位: Business Responses > Fixed Logic)
     // We check if the business has a response for this EXACT number.
     const isExactNumber = /^[0-9]+$/.test(rawText);
-    if (isExactNumber && business.responses && business.responses[rawText]) {
+    if (isExactNumber && !isFallbackMenu && business.responses && business.responses[rawText]) {
         const responseText = business.responses[rawText];
         await sendReply(senderJid, responseText);
         await logMessage(business.id, senderJid, responseText, 'outbound');
@@ -305,7 +307,8 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
                 const isoDateTime = `${bookedDate}T${bookedTime}:00Z`;
                 
                 try {
-                    const cleanClientNumber = senderJid.replace(/[^0-9]/g, '');
+                    // Extract exactly the phone number part (e.g. 54911xxxx:2@s... -> 54911xxxx)
+                    const cleanClientNumber = senderJid.split(':')[0].split('@')[0];
                     await bookAppointment({
                         businessId: business.id,
                         contactName: senderName || 'Usuario WhatsApp', 
