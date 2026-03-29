@@ -47,12 +47,18 @@
 - **Logro**: Eliminación de dependencias de SMTP/APIs de correo pesadas.
 - **Flujo**: El bot deriva interesados a `agenciagolweb@gmail.com` y la web abre el correo automáticamente.
 
+### 📊 Analíticas y Gestión Avanzada de Turnos - v3.9
+- **Logro**: Implementación de Dashboard Analítico con gráficos Chart.js y Exportación CSV de Leads.
+- **Mejora**: Gestión activa de turnos (Confirmar/Cancelar/Mover) con notificación directa vía WhatsApp usando el core estable de botEngine.
+- **UX**: Añadidos Ganchos Conversacionales (Conversational Hooks) para las respuestas de Servicios y Precios, para incitar a la fluidez y eliminar la "mudez" del bot clásico.
+
 ---
 
-**🎯 Próximos Objetivos sugeridos:**
-1.  **Dashboard de Analíticas**: Gráficos sencillos para ver cuántos mensajes y leads se generan por día. 📈
-2.  **Exportación de Leads**: Botón para descargar la lista de interesados en Excel/CSV. 📄
+**🎯 Próximos Objetivos sugeridos (Hacia la v4.0):**
+1.  **Webhooks & Zapier**: Enviar automáticamente los Leads capturados a un CRM externo (Hubspot, Google Sheets) en tiempo real, sin depender solo del CSV. 🔗
+2.  **Mensajes de Seguimiento (Follow-Ups)**: Permitir que el administrador configure desde el Dashboard un mensaje masivo o un recordatorio (ej. 24 horas después) a clientes que consultaron pero no agendaron. ⏰
+3.  **Sliders de Personalidad de IA**: Controles visuales en el Dashboard para elegir el tono del bot (Formal, Amistoso, Vendedor agresivo). 🎛️
 
 ---
 
-**🚀 Estado Actual: Operativo y Estable.**
+**🚀 Estado Actual: Operativo, Estable, y Desplegado en Render.**
