@@ -12,7 +12,8 @@ Los siguientes archivos y lógicas han alcanzado su **versión de oro (estable) 
    - **Lógica de "Human Intervention"**: Se dispara únicamente si un Humano escribe desde el celular ligado o la Web. Si tocas la variable `fromMe` en *whatsappService*, romperás esto irremediablemente.
 
 3. **`services/botEngine.js`**:
-   - **Filtros Determinísticos (Sección Inicial)**: Garantizan respuesta inmediata sin costo de API para opciones básicas (1, 2, 3) y el saludo inicial. **Se recomienda NO modificar esta sección**, ya que previene bucles infinitos al usar la guardia `fromMe` y asegura la estabilidad del menú principal.
+   - **Filtros Determinísticos (Sección Inicial)**: Garantizan respuesta inmediata sin costo de API para opciones básicas (1, 2, 3) y el saludo inicial. **Se recomienda NO modificar este retorno abrupto (return)**, ya que previene bucles infinitos al usar la guardia `fromMe`.
+   - **PREVENCIÓN DE MUTEO (Conversational Hooks)**: Cuando el usuario elige una opción fija como "1" o "2", la respuesta debe obligatoriamente llevar un texto de cierre del tipo *"Si tienes otra duda puntual, ¡escríbemela!"*. Esto provoca que el usuario deje de tipear números y envíe texto natural, activando la IA y evitando que el bot parezca rígido o "mudo". NUNCA ELIMINES LOS HOOKS O CALLS-TO-ACTION.
 
 4. **`services/gemini.js`**:
    - **Versión de Modelo Requerida**: DEBE usarse EXCLUSIVAMENTE `gemini-2.5-flash`. Cambiar a versiones antiguas (ej. `gemini-1.5-flash-latest` o `pro`) tirará un `Error 404 de API v1beta` por restricciones en la cuenta de facturación.
