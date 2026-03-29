@@ -163,16 +163,37 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
 
     let dynamicMenu = buildMenu(business.menu_options);
     
-    let isFallbackMenu = false;
-    // Fallback parallel logic: if menu has less than 2 options or is missing or has "Sin opciones", we forcefully generate the full parallel structure
-    if (!business.menu_options || Object.keys(business.menu_options).length < 2 || dynamicMenu.includes('Sin opciones') || dynamicMenu.includes('(Sin opciones')) {
-        isFallbackMenu = true;
+    // Check if we should use a default menu (only if totally empty or has less than 2 real options)
+    const menuKeys = Object.keys(business.menu_options || {});
+    const hasEnoughOptions = menuKeys.length >= 2;
+    const isSinOpciones = dynamicMenu.includes('Sin opciones') || dynamicMenu.includes('(Sin opciones');
+    
+    // If no menu options are set, provide the standard default
+    if (!business.menu_options || !hasEnoughOptions || isSinOpciones) {
         dynamicMenu = `1️⃣ Servicios 🛠️\n2️⃣ Precios 💰\n3️⃣ Agendar Turno 🗓️`;
     }
 
-    // Append Turno instruction ONLY if not already in the menu and booking is active
+    // Append Turno instruction ONLY if booking is enabled and NOT already visible as an option
     if (business.booking_enabled && !dynamicMenu.toLowerCase().includes('turno') && !dynamicMenu.toLowerCase().includes('reserva')) {
-        dynamicMenu += `\n\n🗓️ Para agendar un turno, simplemente escribe "Turno".`;
+        dynamicMenu += `\n\n🗓️ Para agendar un turno, escribe "Turno".`;
+    }
+
+    // Identify which labels map to which actions (Servicios, Precios, Turnos)
+    const menuMap = {}; // number -> type
+    if (business.menu_options) {
+        Object.entries(business.menu_options).forEach(([key, label]) => {
+            const lowLabel = label.toLowerCase();
+            if (lowLabel.includes('servicio')) menuMap[key] = 'servicios';
+            else if (lowLabel.includes('precio') || lowLabel.includes('costo') || lowLabel.includes('valor')) menuMap[key] = 'precios';
+            else if (lowLabel.includes('turno') || lowLabel.includes('reserva') || lowLabel.includes('agendar')) menuMap[key] = 'turnos';
+        });
+    }
+
+    // Manual overrides for the default menu if it's being used
+    if (!hasEnoughOptions || isSinOpciones) {
+        menuMap["1"] = 'servicios';
+        menuMap["2"] = 'precios';
+        menuMap["3"] = 'turnos';
     }
 
     // A. Handle Greetings/Initial Contact
@@ -186,30 +207,37 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
         return;
     }
 
-    // B. Handle Numeric Options (優先順位: Business Responses > Fixed Logic)
-    // We check if the business has a response for this EXACT number.
+    // B. Handle Numeric Options (優先順位: Logic > Dashboard JSON Responses)
+    // Identify logical action based on keywords or numbered menu position
+    const actionType = menuMap[rawText] || (rawText === "servicios" || rawText === "servicio" ? 'servicios' : (rawText === "precios" || rawText === "precio" || rawText === "costo" || rawText === "valor" ? 'precios' : (rawText === "turno" || rawText === "turnos" ? 'turnos' : null)));
+
+    // Check if the business has a SPECIFIC response for this key in the Dashboard
     const isExactNumber = /^[0-9]+$/.test(rawText);
-    if (isExactNumber && !isFallbackMenu && business.responses && business.responses[rawText]) {
-        const responseText = business.responses[rawText];
-        await sendReply(senderJid, responseText);
-        await logMessage(business.id, senderJid, responseText, 'outbound');
+    const dashboardResponse = (isExactNumber && business.responses) ? business.responses[rawText] : null;
+
+    if (dashboardResponse) {
+        const finalResponse = `${dashboardResponse}\n\n${dynamicMenu}`;
+        await sendReply(senderJid, finalResponse);
+        await logMessage(business.id, senderJid, finalResponse, 'outbound');
         return;
     }
 
-    // Fallback fixed logic for 1, 2, 3 if business doesn't have them
-    if (rawText === "1" || rawText === "servicios" || rawText === "servicio") {
-        const servicesText = `🛠️ *Nuestros Servicios:*\n\n${business.description || 'Consulta con nosotros para más detalles.'}\n\n${dynamicMenu}`;
+    // If no specific dashboard response, fallback to action-based data
+    if (actionType === 'servicios') {
+        const servicesText = `${business.description || 'Consulta con nosotros para más detalles.'}\n\n${dynamicMenu}`;
         await sendReply(senderJid, servicesText);
         await logMessage(business.id, senderJid, servicesText, 'outbound');
         return;
     }
-    if (rawText === "2" || rawText === "precios" || rawText === "precio" || rawText === "costo" || rawText === "valor") {
-        const pricesText = `💰 *Nuestros Precios:*\n\n${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${dynamicMenu}`;
+    
+    if (actionType === 'precios') {
+        const pricesText = `${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${dynamicMenu}`;
         await sendReply(senderJid, pricesText);
         await logMessage(business.id, senderJid, pricesText, 'outbound');
         return;
     }
-    if (rawText === "3" || rawText === "turno" || rawText === "turnos") {
+    
+    if (actionType === 'turnos') {
         const now = new Date();
         const todayISO = now.toISOString().split('T')[0];
         const dayNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
@@ -224,9 +252,17 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
         const cleanShiftStart = (business.shift_start || '09:00:00').slice(0, 5);
         const cleanShiftEnd = (business.shift_end || '18:00:00').slice(0, 5);
 
-        const turnsText = `🗓️ *Agenda de Turnos:*\n\nAtendemos: ${workingDaysLabels}\nHorarios: ${cleanShiftStart} a ${cleanShiftEnd}\nTurnos duran: ${business.slot_duration || 30} mins\n\n*Para reservar, simplemente escribe el día y la hora de tu preferencia que encaje en turnos exactos.* (Ej: El Miércoles a las ${cleanShiftStart})`;
+        const turnsText = `Atendemos: ${workingDaysLabels}\nHorarios: ${cleanShiftStart} a ${cleanShiftEnd}\n\n*Para reservar, escribe el día y la hora de tu preferencia.* (Ej: El Miércoles a las ${cleanShiftStart})\n\n${dynamicMenu}`;
         await sendReply(senderJid, turnsText);
         await logMessage(business.id, senderJid, turnsText, 'outbound');
+        return;
+    }
+
+    // If no specific action, check for exact JSON responses (legacy/generic numbers)
+    if (isExactNumber && business.responses && business.responses[rawText]) {
+        const responseText = business.responses[rawText];
+        await sendReply(senderJid, responseText);
+        await logMessage(business.id, senderJid, responseText, 'outbound');
         return;
     }
 
@@ -304,18 +340,18 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
             if (combinedMatch) {
                 const bookedDate = combinedMatch[1];
                 const bookedTime = combinedMatch[2];
-                const isoDateTime = `${bookedDate}T${bookedTime}:00Z`;
-                
                 try {
-                    // Extract exactly the phone number part (e.g. 54911xxxx:2@s... -> 54911xxxx)
-                    const cleanClientNumber = senderJid.split(':')[0].split('@')[0];
+                    // Extract exactly the phone number digits and ensure it's clean
+                    const cleanClientNumber = senderJid.replace(/[^0-9]/g, '');
+                    const localBookingTime = `${bookedDate}T${bookedTime}:00`; 
+
                     await bookAppointment({
                         businessId: business.id,
                         contactName: senderName || 'Usuario WhatsApp', 
                         contactNumber: cleanClientNumber,
-                        isoDateTime
+                        isoDateTime: localBookingTime // Store as local floating time (DB assumes UTC if TZ is missing)
                     });
-                    logger.info({ business: business.business_name, time: isoDateTime }, 'AI confirmed booking saved to DB');
+                    logger.info({ business: business.business_name, time: localBookingTime }, 'AI confirmed booking saved to DB');
                 } catch (err) {
                     logger.error({ err }, 'Background booking failed to save (non-blocking)');
                 }

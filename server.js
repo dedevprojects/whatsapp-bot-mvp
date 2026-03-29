@@ -779,9 +779,14 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                                         <td style="padding:1rem;">
                                             <span style="background:#E6F7F0; color:#00593B; padding:5px 10px; border-radius:8px; font-weight:bold;">
                                                 ${(() => {
-                                                    try {
-                                                        return new Date(a.appointment_time).toLocaleString('es-ES', { day:'2-digit', month:'short', hour:'2-digit', minute:'2-digit' });
-                                                    } catch(e) { return 'Fecha no válida'; }
+                                                     try {
+                                                         // Use UTC representation to avoid browser timezone shifts
+                                                         const utcDate = new Date(a.appointment_time);
+                                                         return utcDate.getUTCDate().toString().padStart(2,'0') + '/' + 
+                                                                (utcDate.getUTCMonth()+1).toString().padStart(2,'0') + ' ' + 
+                                                                utcDate.getUTCHours().toString().padStart(2,'0') + ':' + 
+                                                                utcDate.getUTCMinutes().toString().padStart(2,'0') + 'hs';
+                                                     } catch(e) { return 'Fecha no válida'; }
                                                 })()}
                                             </span>
                                         </td>
