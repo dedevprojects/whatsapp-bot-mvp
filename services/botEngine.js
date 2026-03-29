@@ -224,14 +224,17 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
 
     // If no specific dashboard response, fallback to action-based data
     if (actionType === 'servicios') {
-        const servicesText = `${business.description || 'Consulta con nosotros para más detalles.'}\n\n${dynamicMenu}`;
+        const hasSpecificServices = business.responses && business.responses.services_text;
+        const textToUse = hasSpecificServices ? business.responses.services_text : (business.description || 'Consulta con nosotros para más detalles.');
+        
+        const servicesText = `${textToUse}\n\n🤖 *Si tienes alguna otra duda o quieres saber más sobre este servicio, ¡Escríbemela! Estoy aquí para ayudarte.*\n\nO si prefieres ir al menú principal:\n${dynamicMenu}`;
         await sendReply(senderJid, servicesText);
         await logMessage(business.id, senderJid, servicesText, 'outbound');
         return;
     }
     
     if (actionType === 'precios') {
-        const pricesText = `${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n${dynamicMenu}`;
+        const pricesText = `${business.knowledge_base || 'Consulta precios específicos con un asesor.'}\n\n🤖 *Si tienes alguna consulta puntual sobre un precio o promoción especial, pregúntame con confianza.*\n\nO elige otra opción:\n${dynamicMenu}`;
         await sendReply(senderJid, pricesText);
         await logMessage(business.id, senderJid, pricesText, 'outbound');
         return;

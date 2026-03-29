@@ -742,9 +742,14 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                  </div>
             </div>
             <div class="form-group">
-                <label>Descripción General (Contexto IA)</label>
+                <label>Descripción General del Negocio (Contexto IA)</label>
                 <textarea name="description">${biz.description || ''}</textarea>
-                <p class="hint">Define quién eres y qué haces. La IA lo usará para presentarse.</p>
+                <p class="hint">Define quién eres y qué haces en general. (Ej: 'Somos una clínica dental...')</p>
+            </div>
+            <div class="form-group" style="background:#f4f9f4; padding:2rem; border-radius:24px; border:1px solid #e0f0e0;">
+                <label style="color:#00593B; font-size:1.4rem;">🛠️ Servicios (Respuesta Opción 1)</label>
+                <textarea name="services_text" style="height: 120px;" placeholder="Ej: Ofrecemos blanqueamiento dental, ortodoncia, e implantes...">${(biz.responses && biz.responses.services_text) || ''}</textarea>
+                <p class="hint">Este es el texto exacto que enviará el bot cuando el cliente seleccione "Servicios".</p>
             </div>
             <div class="form-group">
                 <label>Base de Conocimiento / FAQ</label>
@@ -984,6 +989,12 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             if (menu_options) menuJson = JSON.parse(menu_options);
             if (responses) respJson = JSON.parse(responses);
         } catch (e) { logger.error('Error parsing menu JSON', e); }
+
+        // Agregar el campo específico de Servicios
+        const { services_text } = req.body;
+        if (services_text) {
+            respJson.services_text = services_text;
+        }
 
         const { data: oldBiz } = await supabase.from('businesses').select('whatsapp_number').eq('id', id).single();
 
