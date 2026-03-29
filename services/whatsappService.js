@@ -257,4 +257,22 @@ function getQRCode(whatsappNumber) {
     return qrCodes.get(whatsappNumber) || null;
 }
 
-module.exports = { connectBusiness, disconnectBusiness, getStatus, getQRCode };
+/**
+ * Sends a text message from a specific connected business.
+ */
+async function sendExternalMessage(whatsappNumber, targetJid, text) {
+    const sock = connections.get(whatsappNumber);
+    if (!sock) {
+        logger.error({ whatsappNumber }, 'Cannot send message: business NOT connected');
+        return false;
+    }
+    try {
+        await sock.sendMessage(targetJid, { text });
+        return true;
+    } catch (err) {
+        logger.error({ err, whatsappNumber, targetJid }, 'Failed to send external message');
+        return false;
+    }
+}
+
+module.exports = { connectBusiness, disconnectBusiness, sendExternalMessage, getStatus, getQRCode };

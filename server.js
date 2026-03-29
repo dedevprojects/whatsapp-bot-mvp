@@ -4,7 +4,7 @@ require('dotenv').config();
 
 const express = require('express');
 const supabase = require('./config/supabase');
-const { connectBusiness, getStatus, getQRCode, disconnectBusiness } = require('./services/whatsappService');
+const { connectBusiness, getStatus, getQRCode, disconnectBusiness, sendExternalMessage } = require('./services/whatsappService');
 const QRCode = require('qrcode');
 const cookieParser = require('cookie-parser');
 const logger = require('./utils/logger');
@@ -530,6 +530,14 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
             return { day, count };
         });
 
+        // --- Analytics Section: Menu Usage ---
+        const { data: allMessages } = await supabase.from('messages').select('message_text').eq('direction', 'inbound');
+        const menuUsage = {
+            'Servicios': (allMessages || []).filter(m => m.message_text === '1' || m.message_text?.toLowerCase().includes('servicio')).length,
+            'Precios': (allMessages || []).filter(m => m.message_text === '2' || m.message_text?.toLowerCase().includes('precio')).length,
+            'Turnos': (allMessages || []).filter(m => m.message_text === '3' || m.message_text?.toLowerCase().includes('turno')).length
+        };
+
         const bizRows = (businesses || []).map(biz => {
             const s = statuses[biz.whatsapp_number] || { connected: false };
             const statusLabel = s.connected ? 'CONECTADO' : 'DESCONECTADO';
@@ -568,10 +576,10 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
         header { background: #002D1E; color: white; padding: 1rem 5%; display: flex; justify-content: space-between; align-items: center; }
         .logo-box { display: flex; align-items: center; gap: 10px; font-family: 'Outfit'; font-size: 1.4rem; }
         .logo-box img { width: 30px; border-radius: 6px; }
-        .container { display: grid; grid-template-columns: 2fr 1fr; gap: 2rem; padding: 2rem 5%; }
-        .card { background: white; border-radius: 20px; padding: 2.5rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
+        .container { display: grid; grid-template-columns: 1.5fr 1fr; gap: 2rem; padding: 2rem 5%; }
+        .card { background: white; border-radius: 20px; padding: 2.2rem; box-shadow: 0 10px 30px rgba(0,0,0,0.05); }
         .wide { grid-column: 1 / -1; }
-        h2 { font-family: 'Outfit'; margin-top: 0; color: #00593B; font-size: 1.4rem; border-bottom: 2px solid #F4F7F6; padding-bottom: 1rem; margin-bottom: 1rem; }
+        h2 { font-family: 'Outfit'; margin-top: 0; color: #00593B; font-size: 1.3rem; border-bottom: 2px solid #F4F7F6; padding-bottom: 1rem; margin-bottom: 1.5rem; }
         table { width: 100%; border-collapse: collapse; }
         th { text-align: left; padding: 1rem; border-bottom: 2px solid #F4F7F6; color: #999; font-size: 0.8rem; }
         td { padding: 1.5rem 1rem; border-bottom: 1px solid #F4F7F6; }
@@ -579,6 +587,7 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
         .btn-s:hover { opacity: 0.8; transform: translateY(-2px); }
         .lead-item { padding: 1.2rem; border-bottom: 1px solid #F4F7F6; transition: 0.2s; }
         .lead-item:hover { background: #F9FAFB; }
+        .stats-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 2rem; margin-bottom: 2rem; }
     </style>
 </head>
 <body>
@@ -591,7 +600,17 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
     </header>
     <div class="container">
         
-        <!-- Analytics Section removed as per request -->
+        <div class="wide stats-grid">
+            <div class="card">
+                <h2>📈 Volumen de Leads (7 días)</h2>
+                <canvas id="leadsChart" height="120"></canvas>
+            </div>
+            <div class="card">
+                <h2>📊 Uso de Opciones del Menú</h2>
+                <canvas id="menuChart" height="120"></canvas>
+            </div>
+        </div>
+
         <div class="card">
             <h2>Gestión de Bots Activos</h2>
             <table>
@@ -611,6 +630,36 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
         </div>
     </div>
     <script>
+        // Leads Chart
+        new Chart(document.getElementById('leadsChart'), {
+            type: 'line',
+            data: {
+                labels: ${JSON.stringify(statsData.map(s => s.day))},
+                datasets: [{
+                    label: 'Leads Capturados',
+                    data: ${JSON.stringify(statsData.map(s => s.count))},
+                    borderColor: '#25D366',
+                    backgroundColor: 'rgba(37, 211, 102, 0.1)',
+                    fill: true,
+                    tension: 0.4
+                }]
+            },
+            options: { plugins: { legend: { display: false } } }
+        });
+
+        // Menu Chart
+        new Chart(document.getElementById('menuChart'), {
+            type: 'bar',
+            data: {
+                labels: ['Servicios', 'Precios', 'Turnos'],
+                datasets: [{
+                    data: [${menuUsage.Servicios}, ${menuUsage.Precios}, ${menuUsage.Turnos}],
+                    backgroundColor: ['#00593B', '#25D366', '#FFD54F']
+                }]
+            },
+            options: { plugins: { legend: { display: false } } }
+        });
+
         async function reconnect(num) {
             if(!confirm('¿Desea reiniciar la sesión de ' + num + '?')) return;
             const r = await fetch('/api/reconnect/'+num, {method:'POST'});
@@ -790,19 +839,46 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                                                 })()}
                                             </span>
                                         </td>
-                                        <td style="padding:1rem;"><span style="color:#28a745;">● Confirmado</span></td>
+                                        <td style="padding:1rem;"><span style="color:${a.status === 'confirmed' ? '#28a745' : '#f39c12'};">● ${a.status === 'confirmed' ? 'Confirmado' : 'Pendiente'}</span></td>
                                         <td style="padding:1rem;">
+                                            <a href="/dashboard/appointments/confirm/${a.id}?biz=${id}" 
+                                               onclick="return confirm('¿Seguro que quieres Confirmar este turno? Se enviará aviso al cliente.')"
+                                               style="color:#28a745; text-decoration:none; font-size:0.8rem; border:1px solid #28a745; padding:4px 8px; border-radius:6px; margin-right:5px; font-weight:bold;">
+                                               Confirmar
+                                            </a>
                                             <a href="/dashboard/appointments/cancel/${a.id}?biz=${id}" 
-                                               onclick="return confirm('¿Seguro que quieres cancelar este turno?')"
-                                               style="color:#DC3545; text-decoration:none; font-size:0.8rem; border:1px solid #DC3545; padding:4px 8px; border-radius:6px;">
+                                               onclick="return confirm('¿Seguro que quieres CANCELAR este turno? Se enviará aviso al cliente.')"
+                                               style="color:#DC3545; text-decoration:none; font-size:0.8rem; border:1px solid #DC3545; padding:4px 8px; border-radius:6px; margin-right:5px;">
                                                Cancelar
                                             </a>
+                                            <button onclick="moveAppointment('${a.id}', '${id}')"
+                                               style="color:#3498db; background:transparent; text-decoration:none; font-size:0.8rem; border:1px solid #3498db; padding:4px 8px; border-radius:6px; cursor:pointer; font-weight:600;">
+                                               Mover
+                                            </button>
                                         </td>
                                     </tr>
                                 `).join('')}
                             </tbody>
                         </table>
                     </div>
+                    <script>
+                        async function moveAppointment(appId, bizId) {
+                            const newDateTime = prompt('Ingresa la nueva fecha y hora (Formato: AAAA-MM-DD HH:MM)');
+                            if (!newDateTime) return;
+                            const iso = newDateTime.replace(' ', 'T');
+                            const r = await fetch('/dashboard/appointments/move/' + appId + '?biz=' + bizId, {
+                                method: 'POST',
+                                headers: {'Content-Type': 'application/json'},
+                                body: JSON.stringify({ new_time: iso })
+                            });
+                            if (r.ok) {
+                                alert('Turno movido con éxito. Se enviará aviso al cliente.');
+                                location.reload();
+                            } else {
+                                alert('Error al mover el turno. Revisa el formato.');
+                            }
+                        }
+                    </script>
                 ` : `
                     <div style="text-align:center; padding:2rem; color:#999;">
                         <p>No hay turnos próximos agendados todavía.</p>
@@ -942,21 +1018,71 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
     } catch (e) { res.status(500).send('Error updating: ' + e.message); }
 });
 
-/** Route to cancel an appointment */
+/** Route to CONFIRM an appointment and notify client */
+app.get('/dashboard/appointments/confirm/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const { biz: bizId } = req.query;
+
+    try {
+        const { data: appt } = await supabase.from('appointments').select('*').eq('id', id).single();
+        const { data: biz } = await supabase.from('businesses').select('*').eq('id', bizId).single();
+
+        if (appt && biz) {
+            await supabase.from('appointments').update({ status: 'confirmed' }).eq('id', id);
+            
+            const dateStr = new Date(appt.appointment_time).toLocaleDateString('es-AR');
+            const timeStr = new Date(appt.appointment_time).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            const msg = `✅ *Turno Confirmado*\n\nHola ${appt.contact_name}, tu turno en *${biz.business_name}* para el día ${dateStr} a las ${timeStr}hs ha sido CONFIRMADO. ¡Te esperamos!`;
+            
+            const cleanNum = appt.contact_number.replace(/\D/g, '');
+            await sendExternalMessage(biz.whatsapp_number, cleanNum + '@s.whatsapp.net', msg);
+        }
+    } catch (e) { logger.error(e); }
+    res.redirect(`/dashboard/edit/${bizId}`);
+});
+
+/** Route to MOVE an appointment and notify client */
+app.post('/dashboard/appointments/move/:id', authMiddleware, async (req, res) => {
+    const { id } = req.params;
+    const { biz: bizId } = req.query;
+    const { new_time } = req.body;
+
+    try {
+        const { data: appt } = await supabase.from('appointments').select('*').eq('id', id).single();
+        const { data: biz } = await supabase.from('businesses').select('*').eq('id', bizId).single();
+
+        if (appt && biz && new_time) {
+            await supabase.from('appointments').update({ appointment_time: new_time }).eq('id', id);
+            
+            const dateStr = new Date(new_time).toLocaleDateString('es-AR');
+            const timeStr = new Date(new_time).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' });
+            const msg = `📅 *Turno Reprogramado*\n\nHola ${appt.contact_name}, tu turno en *${biz.business_name}* ha sido movido al día ${dateStr} a las ${timeStr}hs.`;
+            
+            const cleanNum = appt.contact_number.replace(/\D/g, '');
+            await sendExternalMessage(biz.whatsapp_number, cleanNum + '@s.whatsapp.net', msg);
+        }
+    } catch (e) { logger.error(e); }
+    res.json({ success: true });
+});
+
+/** Route to cancel an appointment and notify */
 app.get('/dashboard/appointments/cancel/:id', authMiddleware, async (req, res) => {
     const { id } = req.params;
-    const { biz } = req.query;
+    const { biz: bizId } = req.query;
 
-    const { error } = await supabase
-        .from('appointments')
-        .delete()
-        .eq('id', id);
+    try {
+        const { data: appt } = await supabase.from('appointments').select('*').eq('id', id).single();
+        const { data: biz } = await supabase.from('businesses').select('*').eq('id', bizId).single();
 
-    if (error) {
-        logger.error({ error, id }, 'Failed to cancel appointment');
-    }
-    
-    res.redirect(`/dashboard/edit/${biz}`);
+        if (appt && biz) {
+             const dateStr = new Date(appt.appointment_time).toLocaleDateString('es-AR');
+             const msg = `❌ *Turno Cancelado*\n\nHola ${appt.contact_name}, lamentablemente tu turno en *${biz.business_name}* para el día ${dateStr} ha sido CANCELADO.`;
+             const cleanNum = appt.contact_number.replace(/\D/g, '');
+             await sendExternalMessage(biz.whatsapp_number, cleanNum + '@s.whatsapp.net', msg);
+        }
+        await supabase.from('appointments').delete().eq('id', id);
+    } catch (e) { logger.error(e); }
+    res.redirect(`/dashboard/edit/${bizId}`);
 });
 
 /** Route to reset session manually */
