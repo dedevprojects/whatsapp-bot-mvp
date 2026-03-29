@@ -1,8 +1,12 @@
 # Estado del Proyecto - Plusbot WhatsApp AI Engine v3.0 🚀
 
-**Fecha Última Actualización:** 26 de Marzo, 2026 (Finalización Sesión)
+**Fecha Última Actualización:** 28 de Marzo, 2026 (Limpieza de Lógica y Sincronización)
 
-## ✅ Hitos Realizados (Lanzamiento v3.0)
+## ✅ Sesión de Limpieza Finalizada (Motor v3.8)
+1.  **Sincronización Total con Dashboard**: El bot ahora prioriza por sobre todo el campo "Respuesta Automática" del Menú Interactivo (#1, #2, #3). Si está vacío, busca dinámicamente en `description` o `knowledge_base`.
+2.  **Limpieza de Leads**: Agendamiento captura números de teléfono 100% limpios (regex `/\D/g`) y nombres de usuario correctos.
+3.  **Corrección de Fecha/Hora**: Turnos guardados y mostrados como "floating local times" (formato UTC sin offset para evitar saltos de hora en el navegador).
+4.  **Respeto Estricto de AI_RULES**: Estabilidad garantizada manteniendo el `fromMe` guard y el loop guard de Baileys intacto.
 1.  **Lanzamiento Plusbot Branding**: Reemplazo total de la identidad "Universal Bot" por **Plusbot**. Logo e iconos actualizados.
 2.  **Landing Page Premium (Estilo Dribbble)**:
     *   **Animaciones de Escritura**: Títulos y celular interactivo con efecto de tipeo letra por letra real.
