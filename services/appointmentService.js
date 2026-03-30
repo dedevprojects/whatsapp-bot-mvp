@@ -101,4 +101,53 @@ async function bookAppointment({ businessId, contactName, contactNumber, isoDate
     return data;
 }
 
-module.exports = { getAvailableSlots, bookAppointment };
+/**
+ * Retrieves the next upcoming appointment for a specific number and business.
+ * 
+ * @param {string} businessId
+ * @param {string} contactNumber
+ * @returns {Promise<object|null>}
+ */
+async function getUpcomingAppointment(businessId, contactNumber) {
+    const { data, error } = await supabase
+        .from('appointments')
+        .select('*')
+        .eq('business_id', businessId)
+        .eq('contact_number', contactNumber)
+        .gte('appointment_time', new Date().toISOString())
+        .order('appointment_time', { ascending: true })
+        .limit(1)
+        .maybeSingle();
+
+    if (error) {
+        logger.error({ error, businessId, contactNumber }, 'Failed to fetch upcoming appointment');
+        return null;
+    }
+    return data;
+}
+
+/**
+ * Removes an appointment for a specific number and business (or by ID).
+ * 
+ * @param {string} businessId
+ * @param {string} contactNumber
+ * @param {string} appointmentId (Optional)
+ */
+async function cancelAppointment(businessId, contactNumber, appointmentId = null) {
+    let query = supabase.from('appointments').delete().eq('business_id', businessId);
+    
+    if (appointmentId) {
+        query = query.eq('id', appointmentId);
+    } else {
+        query = query.eq('contact_number', contactNumber).gte('appointment_time', new Date().toISOString());
+    }
+
+    const { error } = await query;
+    if (error) {
+        logger.error({ error, businessId, contactNumber }, 'Failed to cancel appointment');
+        throw error;
+    }
+    logger.info({ businessId, contactNumber }, 'Appointment(s) cancelled successfully');
+}
+
+module.exports = { getAvailableSlots, bookAppointment, getUpcomingAppointment, cancelAppointment };

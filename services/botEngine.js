@@ -143,6 +143,10 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     // 2. --- LOAD RECENT HISTORY ---
     // We load history BEFORE logging the current message to keep them separate for AI context.
     const history = await getRecentHistory(business.id, senderJid);
+    
+    // NEW: Get upcoming appointment for context
+    const cleanSenderNum = senderJid.replace(/[^0-9]/g, '');
+    const upcomingAppt = await require('./appointmentService').getUpcomingAppointment(business.id, cleanSenderNum);
 
     // 3. --- LOG INBOUND MESSAGE ---
     const logText = text || (mediaBuffer ? `[Media: ${mimeType}]` : "");
@@ -350,6 +354,13 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
             }
 
             augmentedBusiness.knowledge_base = menuRules + extraBusinessContext + (business.knowledge_base || "");
+
+            // Inject upcoming appointment if exists
+            if (upcomingAppt) {
+                const date = new Date(upcomingAppt.appointment_time).toLocaleDateString();
+                const time = new Date(upcomingAppt.appointment_time).toLocaleTimeString(undefined, { hour: '2-digit', minute: '2-digit' });
+                augmentedBusiness.knowledge_base += `\n--- TURNO ACTUAL DEL CLIENTE ---\nEl cliente ya tiene un turno agendado para el ${date} a las ${time}hs. Si desea CANCELARLO, confirma con la frase exacta: 'Turno cancelado correctamente.'\n`;
+            }
         } catch (err) {
             logger.error({ err }, 'Failed to inject availability context (Non-blocking)');
         }
@@ -392,6 +403,17 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
         }
         
         await logMessage(business.id, senderJid, reply, 'outbound');
+
+        // NEW: Detect Cancellation phrase
+        if (reply.includes('Turno cancelado correctamente.')) {
+            try {
+                const cleanNum = senderJid.replace(/[^0-9]/g, '');
+                await require('./appointmentService').cancelAppointment(business.id, cleanNum);
+                logger.info({ business: business.business_name, num: cleanNum }, 'AI triggered cancellation saved to DB');
+            } catch (err) {
+                logger.error({ err }, 'Background cancellation failed (non-blocking)');
+            }
+        }
     }
 }
 
