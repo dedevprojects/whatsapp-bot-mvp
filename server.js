@@ -768,7 +768,18 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
         .personality-control input { display: none; }
         .personality-control input:checked + span { background: #00593B; color: #FFF; border-radius: 14px; display: block; padding: 10px; }
         .personality-control span { display: block; padding: 10px; border-radius: 14px; }
+
+        /* FullCalendar Customization */
+        #calendar { margin-top: 2rem; background: #fff; padding: 1.5rem; border-radius: 20px; border: 1px solid #EEE; min-height: 600px; }
+        .fc-header-toolbar { margin-bottom: 2rem !important; }
+        .fc-button-primary { background-color: #00593B !important; border-color: #00593B !important; border-radius: 10px !important; text-transform: capitalize !important; }
+        .fc-button-primary:hover { background-color: #002D1E !important; }
+        .fc-daygrid-day-number { text-decoration: none !important; color: #333; }
+        .fc-event { cursor: pointer; border: none !important; padding: 3px 5px !important; border-radius: 4px !important; }
+        .fc-v-event { background-color: #25D366 !important; }
+        .fc-h-event { background-color: #25D366 !important; }
     </style>
+    <script src='https://cdn.jsdelivr.net/npm/fullcalendar@6.1.10/index.global.min.js'></script>
 </head>
 <body>
     <header>
@@ -886,84 +897,61 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             </div>
 
             <div class="appointments-section" style="background:#FFF; padding:2rem; border-radius:24px; border:1px solid #EEE; margin-top: 2rem;">
-                <label style="color:#00593B; font-size:1.4rem; display:block; margin-bottom:1.5rem;">📅 Próximos Turnos (Agenda)</label>
+                <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1.5rem;">
+                    <label style="color:#00593B; font-size:1.4rem; margin:0;">🗓️ Agenda de Turnos Inteligente</label>
+                    <div style="display:flex; gap:10px;">
+                        <button type="button" onclick="toggleView('calendar')" id="btn-cal" class="btn-s" style="background:#00593B;">Vista Calendario</button>
+                        <button type="button" onclick="toggleView('list')" id="btn-list" class="btn-s" style="background:#EEE; color:#333;">Vista Lista</button>
+                    </div>
+                </div>
+
+                <div id="calendar-container">
+                    <div id="calendar"></div>
+                </div>
                 
-                ${appts && appts.length > 0 ? `
-                    <div style="overflow-x:auto;">
-                        <table style="width:100%; border-collapse:collapse; text-align:left;">
-                            <thead>
-                                <tr style="border-bottom:2px solid #F5F5F5; color:#666; font-size:0.9rem;">
-                                    <th style="padding:1rem;">CLIENTE</th>
-                                    <th style="padding:1rem;">WHATSAPP</th>
-                                    <th style="padding:1rem;">FECHA Y HORA</th>
-                                    <th style="padding:1rem;">ESTADO</th>
-                                    <th style="padding:1rem;">ACCIONES</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                ${appts.map(a => `
-                                    <tr style="border-bottom:1px solid #F9F9F9;">
-                                        <td style="padding:1rem;"><strong>${a.contact_name || 'Usuario'}</strong></td>
-                                        <td style="padding:1rem;">${a.contact_number}</td>
-                                        <td style="padding:1rem;">
-                                            <span style="background:#E6F7F0; color:#00593B; padding:5px 10px; border-radius:8px; font-weight:bold;">
-                                                ${(() => {
-                                                     try {
-                                                         // Use UTC representation to avoid browser timezone shifts
-                                                         const utcDate = new Date(a.appointment_time);
-                                                         return utcDate.getUTCDate().toString().padStart(2,'0') + '/' + 
-                                                                (utcDate.getUTCMonth()+1).toString().padStart(2,'0') + ' ' + 
-                                                                utcDate.getUTCHours().toString().padStart(2,'0') + ':' + 
-                                                                utcDate.getUTCMinutes().toString().padStart(2,'0') + 'hs';
-                                                     } catch(e) { return 'Fecha no válida'; }
-                                                })()}
-                                            </span>
-                                        </td>
-                                        <td style="padding:1rem;"><span style="color:${a.status === 'confirmed' ? '#28a745' : '#f39c12'};">● ${a.status === 'confirmed' ? 'Confirmado' : 'Pendiente'}</span></td>
-                                        <td style="padding:1rem;">
-                                            <a href="/dashboard/appointments/confirm/${a.id}?biz=${id}" 
-                                               onclick="return confirm('¿Seguro que quieres Confirmar este turno? Se enviará aviso al cliente.')"
-                                               style="color:#28a745; text-decoration:none; font-size:0.8rem; border:1px solid #28a745; padding:4px 8px; border-radius:6px; margin-right:5px; font-weight:bold;">
-                                               Confirmar
-                                            </a>
-                                            <a href="/dashboard/appointments/cancel/${a.id}?biz=${id}" 
-                                               onclick="return confirm('¿Seguro que quieres CANCELAR este turno? Se enviará aviso al cliente.')"
-                                               style="color:#DC3545; text-decoration:none; font-size:0.8rem; border:1px solid #DC3545; padding:4px 8px; border-radius:6px; margin-right:5px;">
-                                               Cancelar
-                                            </a>
-                                            <button onclick="moveAppointment('${a.id}', '${id}')"
-                                               style="color:#3498db; background:transparent; text-decoration:none; font-size:0.8rem; border:1px solid #3498db; padding:4px 8px; border-radius:6px; cursor:pointer; font-weight:600;">
-                                               Mover
-                                            </button>
-                                        </td>
+                <div id="list-container" style="display:none;">
+                    ${appts && appts.length > 0 ? `
+                        <div style="overflow-x:auto;">
+                            <table style="width:100%; border-collapse:collapse; text-align:left;">
+                                <thead>
+                                    <tr style="border-bottom:2px solid #F5F5F5; color:#666; font-size:0.9rem;">
+                                        <th style="padding:1rem;">CLIENTE</th>
+                                        <th style="padding:1rem;">WHATSAPP</th>
+                                        <th style="padding:1rem;">FECHA Y HORA</th>
+                                        <th style="padding:1rem;">ESTADO</th>
+                                        <th style="padding:1rem;">ACCIONES</th>
                                     </tr>
-                                `).join('')}
-                            </tbody>
-                        </table>
-                    </div>
-                    <script>
-                        async function moveAppointment(appId, bizId) {
-                            const newDateTime = prompt('Ingresa la nueva fecha y hora (Formato: AAAA-MM-DD HH:MM)');
-                            if (!newDateTime) return;
-                            const iso = newDateTime.replace(' ', 'T');
-                            const r = await fetch('/dashboard/appointments/move/' + appId + '?biz=' + bizId, {
-                                method: 'POST',
-                                headers: {'Content-Type': 'application/json'},
-                                body: JSON.stringify({ new_time: iso })
-                            });
-                            if (r.ok) {
-                                alert('Turno movido con éxito. Se enviará aviso al cliente.');
-                                location.reload();
-                            } else {
-                                alert('Error al mover el turno. Revisa el formato.');
-                            }
-                        }
-                    </script>
-                ` : `
-                    <div style="text-align:center; padding:2rem; color:#999;">
-                        <p>No hay turnos próximos agendados todavía.</p>
-                    </div>
-                `}
+                                </thead>
+                                <tbody>
+                                    ${appts.map(a => `
+                                        <tr style="border-bottom:1px solid #F9F9F9;">
+                                            <td style="padding:1rem;"><strong>${a.contact_name || 'Usuario'}</strong></td>
+                                            <td style="padding:1rem;">${a.contact_number}</td>
+                                            <td style="padding:1rem;">
+                                                <span style="background:#E6F7F0; color:#00593B; padding:5px 10px; border-radius:8px; font-weight:bold;">
+                                                    ${(() => {
+                                                         try {
+                                                             const utcDate = new Date(a.appointment_time);
+                                                             return utcDate.getUTCDate().toString().padStart(2,'0') + '/' + 
+                                                                    (utcDate.getUTCMonth()+1).toString().padStart(2,'0') + ' ' + 
+                                                                    utcDate.getUTCHours().toString().padStart(2,'0') + ':' + 
+                                                                    utcDate.getUTCMinutes().toString().padStart(2,'0') + 'hs';
+                                                         } catch(e) { return 'Fecha no válida'; }
+                                                    })()}
+                                                </span>
+                                            </td>
+                                            <td style="padding:1rem;"><span style="color:${a.status === 'confirmed' ? '#28a745' : '#f39c12'};">● ${a.status === 'confirmed' ? 'Confirmado' : 'Pendiente'}</span></td>
+                                            <td style="padding:1rem;">
+                                                <a href="/dashboard/appointments/confirm/${a.id}?biz=${id}" onclick="return confirm('¿Confirmar?')" style="color:#28a745; text-decoration:none; font-size:0.8rem; border:1px solid #28a745; padding:4px 8px; border-radius:6px; margin-right:5px;">Confirmar</a>
+                                                <a href="/dashboard/appointments/cancel/${a.id}?biz=${id}" onclick="return confirm('¿Cancelar?')" style="color:#DC3545; text-decoration:none; font-size:0.8rem; border:1px solid #DC3545; padding:4px 8px; border-radius:6px; margin-right:5px;">Borrar</a>
+                                            </td>
+                                        </tr>
+                                    `).join('')}
+                                </tbody>
+                            </table>
+                        </div>
+                    ` : `<p style="text-align:center; color:#999; padding:2rem;">No hay turnos próximos.</p>`}
+                </div>
             </div>
 
             <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
@@ -1030,6 +1018,66 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             });
             document.getElementById('menu_options_input').value = JSON.stringify(menu);
             document.getElementById('responses_input').value = JSON.stringify(resp);
+        }
+
+        // --- FULL CALENDAR INITIALIZATION ---
+        const rawAppts = ${JSON.stringify(appts || [])};
+        const events = rawAppts.map(a => ({
+            id: a.id,
+            title: (a.contact_name || 'Turno') + ' (' + a.contact_number + ')',
+            start: a.appointment_time,
+            backgroundColor: a.status === 'confirmed' ? '#25D366' : '#f39c12',
+            extendedProps: { ...a }
+        }));
+
+        document.addEventListener('DOMContentLoaded', function() {
+            const calendarEl = document.getElementById('calendar');
+            const calendar = new FullCalendar.Calendar(calendarEl, {
+                initialView: 'dayGridMonth',
+                locale: 'es',
+                headerToolbar: {
+                    left: 'prev,next today',
+                    center: 'title',
+                    right: 'dayGridMonth,timeGridWeek,timeGridDay'
+                },
+                buttonText: {
+                    today: 'Hoy',
+                    month: 'Mes',
+                    week: 'Semana',
+                    day: 'Día'
+                },
+                events: events,
+                eventClick: function(info) {
+                    const a = info.event.extendedProps;
+                    const date = new Date(a.appointment_time).toLocaleString();
+                    if(confirm('Turno: ' + a.contact_name + '\\nFecha: ' + date + '\\n\\n¿Deseas CANCELAR este turno?')) {
+                        window.location.href = '/dashboard/appointments/cancel/' + a.id + '?biz=${id}';
+                    }
+                }
+            });
+            calendar.render();
+            // Re-render when container might be hidden/shown
+            window.calendar = calendar;
+        });
+
+        function toggleView(v) {
+            const cal = document.getElementById('calendar-container');
+            const lst = document.getElementById('list-container');
+            const bCal = document.getElementById('btn-cal');
+            const bLst = document.getElementById('btn-list');
+
+            if(v === 'calendar') {
+                cal.style.display = 'block';
+                lst.style.display = 'none';
+                bCal.style.background = '#00593B'; bCal.style.color = '#FFF';
+                bLst.style.background = '#EEE'; bLst.style.color = '#333';
+                window.calendar.render();
+            } else {
+                cal.style.display = 'none';
+                lst.style.display = 'block';
+                bLst.style.background = '#00593B'; bLst.style.color = '#FFF';
+                bCal.style.background = '#EEE'; bCal.style.color = '#333';
+            }
         }
     </script>
 </body>
