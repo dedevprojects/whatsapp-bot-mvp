@@ -199,6 +199,36 @@ async function processMessage({ senderJid, senderName, recipientJid, text, media
     // A. Handle Greetings/Initial Contact
     // Only intercept if it's JUST a greeting. If it has more content, let AI handle it.
     const isJustGreeting = greetings.includes(rawText);
+    
+    // NEW: Automatic Lead Capture on first contact
+    if (isFirstContact) {
+        try {
+            const cleanSenderNum = senderJid.replace(/[^0-9]/g, '');
+            const contactName = senderName || 'Usuario WhatsApp';
+            
+            // 1. Save to DB leads table
+            const { data: newLead } = await supabase.from('leads').insert([{
+                business_name: business.business_name,
+                contact_name: contactName,
+                contact_number: cleanSenderNum,
+                interest_level: 'Medium'
+            }]).select().single();
+
+            // 2. Trigger Webhook
+            if (business.webhook_url) {
+                const { sendWebhook } = require('../utils/webhookHelper');
+                sendWebhook(business.webhook_url, {
+                    event: 'whatsapp_new_lead',
+                    contact_name: contactName,
+                    contact_number: cleanSenderNum,
+                    business_name: business.business_name
+                }).catch(e => logger.error('Error on whatsapp webhook send'));
+            }
+        } catch (err) {
+            logger.error({ err }, 'Failed to auto-capture WhatsApp lead');
+        }
+    }
+
     if ((isFirstContact || isJustGreeting) && !mediaBuffer) {
         // Build the menu based on MUST HAVE options AND business options
         const finalGreeting = `${business.welcome_message || '¡Hola! ¿En qué puedo ayudarte?'}\n\n${dynamicMenu}`;

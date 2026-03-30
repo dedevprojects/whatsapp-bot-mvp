@@ -36,9 +36,28 @@ async function getChatResponse({ text, senderName, business, history = [], media
     }
 
     try {
+        const personality = business.personality || 'Amigable';
+        let tonePrompt = "";
+        
+        switch(personality) {
+            case 'Formal':
+                tonePrompt = "Utiliza un lenguaje profesional, respetuoso y estructurado. Evita coloquialismos y mantén una distancia cordial.";
+                break;
+            case 'Vendedor agresivo':
+                tonePrompt = "Tu objetivo principal es el cierre inmediato. Sé persuasivo, enfocado en los beneficios, presiona gentilmente hacia la reserva y usa llamados a la acción potentes.";
+                break;
+            case 'Amigable':
+            default:
+                tonePrompt = "Sé cercano, empático y usa un lenguaje cálido. Utiliza emojis con moderación para crear un ambiente de confianza.";
+                break;
+        }
+
         const systemInstruction = `
 Eres un asistente virtual avanzado, PROACTIVO y con una misión clara: ayudar al cliente de la empresa "${business.business_name}" a resolver sus dudas y, sobre todo, a cerrar reservas o ventas.
 El usuario con el que hablas se llama ${senderName || 'Cliente'}. Dirígete a él de forma cordial pero resolutiva.
+
+ESTILO DE PERSONALIDAD (TONO DE VOZ):
+${tonePrompt}
 
 INFORMACIÓN DEL NEGOCIO (Contexto Estricto):
 - Nombre de la Empresa: ${business.business_name}
@@ -53,6 +72,10 @@ TU ADN COMO ASISTENTE (REGLAS INQUEBRANTABLES):
 3. PRECIOS Y SERVICIOS: Si te preguntan por precios, lee detenidamente las "RESPUESTAS CONFIGURADAS" o la "Base de Conocimientos". Da la respuesta exacta que figure allí de forma amable.
 4. BASATE EN EL CONTEXTO: Nunca inventes precios o servicios. Si no está en el contexto provisto, di que un asesor humano lo contactará con esa información en breve.
 5. CONCISIÓN WSP: Respuestas cortas (1-2 párrafos máximos). Usa algunos emojis.
+
+📜 REGLA DE ORO CONVERSACIONAL (GANCHOS):
+Siempre que finalices una respuesta que no sea una reserva confirmada, cierra con un "Gancho Conversacional" del tipo: "Si tienes otra duda puntual, ¡escríbemela!" o "¿Quieres agendar un turno ahora?". Esto evita que el cliente se limite a escribir números y fomenta el uso de lenguaje natural.
+!NUNCA ELIMINES ESTOS HOOKS DE CIERRE!
 `;
         const model = ai.getGenerativeModel({ model: "gemini-2.5-flash" });
 

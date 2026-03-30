@@ -515,6 +515,7 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
 
         const { data: businesses } = await bizQuery;
         const { data: leads } = await leadsQuery;
+        const { data: appts_global } = await supabase.from('appointments').select('contact_number'); // To filter leads without appts
         const statuses = getStatus();
 
         // --- Stats Calculation (Last 7 Days) ---
@@ -601,11 +602,11 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
     <div class="container">
         
         <div class="wide stats-grid">
-            <div class="card">
+            <div class="card" style="border-top: 5px solid #25D366;">
                 <h2>📈 Volumen de Leads (7 días)</h2>
                 <canvas id="leadsChart" height="120"></canvas>
             </div>
-            <div class="card">
+            <div class="card" style="border-top: 5px solid #00593B;">
                 <h2>📊 Uso de Opciones del Menú</h2>
                 <canvas id="menuChart" height="120"></canvas>
             </div>
@@ -619,9 +620,45 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
             </table>
         </div>
         
+        <div class="card wide">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom: 2px solid #F4F7F6; padding-bottom:1rem;">
+                <h2 style="margin:0; border:none; padding:0;">📢 Campañas de Seguimiento (Follow-Up)</h2>
+                <span style="font-size:0.8rem; color:#666;">Leads que aún no agendaron un turno</span>
+            </div>
+            <div style="overflow-x:auto;">
+                <table style="width:100%; border-collapse:collapse;">
+                    <thead><tr style="text-align:left; color:#999; font-size:0.8rem;"><th>CLIENTE</th><th>WHATSAPP</th><th>ULTIMO CONTACTO</th><th>ACCIÓN</th></tr></thead>
+                    <tbody>
+                        ${(() => {
+                            // Simple logic to find leads without future appointments
+                            const leadsWithoutAppt = (leads || []).filter(l => {
+                                const hasAppt = (appts_global || []).some(a => a.contact_number === l.contact_number.replace(/\D/g, ''));
+                                return !hasAppt;
+                            });
+                            
+                            return (leadsWithoutAppt.length > 0) ? leadsWithoutAppt.slice(0, 10).map(l => {
+                                const bizForLead = (businesses || []).find(b => b.business_name === l.business_name);
+                                const bizId = bizForLead ? bizForLead.id : '';
+                                return `
+                                    <tr>
+                                        <td>${l.contact_name}</td>
+                                        <td>${l.contact_number}</td>
+                                        <td>${new Date(l.created_at).toLocaleDateString()}</td>
+                                        <td>
+                                            <button onclick="sendFollowup('${l.contact_number}', '${bizId}')" class="btn-s" style="background:#00593B;">🚀 Enviar Follow-up</button>
+                                        </td>
+                                    </tr>
+                                `;
+                            }).join('') : '<tr><td colspan="4" style="text-align:center; padding:2rem; color:#999;">No hay leads pendientes de seguimiento.</td></tr>';
+                        })()}
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
         <div class="card">
             <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:1rem; border-bottom: 2px solid #F4F7F6; padding-bottom:1rem;">
-                <h2 style="margin:0; border:none; padding:0;">Interesados</h2>
+                <h2 style="margin:0; border:none; padding:0;">Interesados Recientes</h2>
                 <a href="/dashboard/leads/export" class="btn-s" style="background:#3498db;">⬇️ CSV</a>
             </div>
             <div style="max-height: 50vh; overflow-y: auto;">
@@ -664,6 +701,20 @@ app.get('/dashboard', authMiddleware, async (req, res) => {
             if(!confirm('¿Desea reiniciar la sesión de ' + num + '?')) return;
             const r = await fetch('/api/reconnect/'+num, {method:'POST'});
             if(r.ok) { alert('Comando de reinicio enviado con éxito. Espera 10 segundos.'); location.reload(); }
+        }
+
+        async function sendFollowup(num, bizId) {
+            if (!bizId) return alert('No se pudo identificar el bot para este lead.');
+            const msg = prompt('¿Qué mensaje quieres enviarle? (Deja vacío para usar el predeterminado)', '¡Hola! Notamos que te interesaste en nuestros servicios hace unos días. ¿Tienes alguna duda en la que podamos ayudarte? 😊');
+            if (msg === null) return;
+            
+            const r = await fetch('/api/followup', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({ number: num, message: msg, businessId: bizId })
+            });
+            if (r.ok) alert('Mensaje enviado con éxito 🚀');
+            else alert('Error al enviar el mensaje.');
         }
     </script>
 </body>
@@ -710,6 +761,13 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
         .btn-save { background: #25D366; color: white; padding: 15px 40px; border-radius: 15px; border: none; font-weight: 800; cursor: pointer; transition: 0.3s; }
         .btn-save:hover { transform: translateY(-3px); box-shadow: 0 10px 20px rgba(37,211,102,0.3); }
         .back { text-decoration: none; color: #999; display: inline-block; margin-bottom: 2rem; }
+
+        /* Segmented Control for Personality */
+        .personality-control { display: flex; background: #EEE; padding: 5px; border-radius: 18px; margin-top: 1rem; }
+        .personality-control label { flex: 1; text-align: center; margin: 0; padding: 12px; border-radius: 14px; cursor: pointer; transition: 0.3s; font-size: 0.9rem; font-weight: 600; }
+        .personality-control input { display: none; }
+        .personality-control input:checked + span { background: #00593B; color: #FFF; border-radius: 14px; display: block; padding: 10px; }
+        .personality-control span { display: block; padding: 10px; border-radius: 14px; }
     </style>
 </head>
 <body>
@@ -765,6 +823,23 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                 <label>Contraseña de Acceso (Cliente)</label>
                 <input type="text" name="access_password" value="${biz.access_password || ''}" placeholder="Crea una contraseña para tu cliente">
                 <p class="hint">El cliente usará esta contraseña para ver solo su panel.</p>
+            </div>
+
+            <div class="grid" style="display:grid; grid-template-columns: 1fr 1fr; gap: 2rem; background:#fff8e1; padding:2rem; border-radius:24px; border:1px solid #ffe082; margin-top:2rem;">
+                 <div class="form-group">
+                    <label style="color:#bf360c;">🎭 Personalidad de la IA</label>
+                    <div class="personality-control">
+                        <label><input type="radio" name="personality" value="Amigable" ${biz.personality === 'Amigable' ? 'checked' : ''}><span>Amigable 😊</span></label>
+                        <label><input type="radio" name="personality" value="Formal" ${biz.personality === 'Formal' ? 'checked' : ''}><span>Formal 👔</span></label>
+                        <label><input type="radio" name="personality" value="Vendedor agresivo" ${biz.personality === 'Vendedor agresivo' ? 'checked' : ''}><span>Vendedor 🔥</span></label>
+                    </div>
+                    <p class="hint">Cambia el tono con el que el bot le habla a tus clientes.</p>
+                 </div>
+                 <div class="form-group">
+                    <label style="color:#bf360c;">🔗 Webhook (G. Sheets / Zapier)</label>
+                    <input type="url" name="webhook_url" value="${biz.webhook_url || ''}" placeholder="https://hooks.zapier.com/...">
+                    <p class="hint">URL para enviar los Leads automáticamente (vía Webhookr).</p>
+                 </div>
             </div>
 
             <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
@@ -976,7 +1051,7 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
         }
 
         const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password,
-            booking_enabled, slot_duration, shift_start, shift_end, days } = req.body;
+            booking_enabled, slot_duration, shift_start, shift_end, days, personality, webhook_url } = req.body;
         
         let workingDaysStr = '1,2,3,4,5,6';
         if (days) {
@@ -1015,6 +1090,9 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
             shift_start,
             shift_end,
             working_days: workingDaysStr,
+
+            personality,
+            webhook_url,
 
             updated_at: new Date()
         }).eq('id', id);
@@ -1126,7 +1204,21 @@ app.get('/dashboard/disconnect/:id', authMiddleware, async (req, res) => {
 app.post('/api/leads', async (req, res) => {
     const { business_name, contact_name, contact_number, contact_email } = req.body;
     try {
-        await supabase.from('leads').insert([{ business_name, contact_name, contact_number, contact_email }]);
+        const { data: lead } = await supabase.from('leads').insert([{ business_name, contact_name, contact_number, contact_email }]).select().single();
+        
+        // Trigger Webhook if configured for this business
+        const { data: biz } = await supabase.from('businesses').select('webhook_url').eq('business_name', business_name).maybeSingle();
+        if (biz && biz.webhook_url) {
+            const { sendWebhook } = require('./utils/webhookHelper');
+            sendWebhook(biz.webhook_url, {
+                event: 'landing_page_lead',
+                contact_name,
+                contact_number,
+                contact_email,
+                business_name
+            }).catch(e => logger.error('Error on webhook send'));
+        }
+
         res.status(201).json({ success: true });
     } catch (e) {
         res.status(500).json({ error: e.message });
@@ -1161,6 +1253,23 @@ app.get('/dashboard/leads/export', authMiddleware, async (req, res) => {
         res.status(200).send(csv);
     } catch (e) {
         res.status(500).send('Error exportando: ' + e.message);
+    }
+});
+
+app.post('/api/followup', authMiddleware, async (req, res) => {
+    const { number, message, businessId } = req.body;
+    try {
+        const { data: biz } = await supabase.from('businesses').select('whatsapp_number').eq('id', businessId).single();
+        if (!biz) return res.status(404).json({ error: 'Business not found' });
+        
+        const cleanNum = number.replace(/\D/g, '');
+        const jid = cleanNum + '@s.whatsapp.net';
+        
+        await sendExternalMessage(biz.whatsapp_number, jid, message);
+        res.json({ success: true });
+    } catch (e) {
+        logger.error(e);
+        res.status(500).json({ error: e.message });
     }
 });
 
