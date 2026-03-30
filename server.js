@@ -849,12 +849,54 @@ app.get('/dashboard/edit/:id', authMiddleware, async (req, res) => {
                  <div class="form-group">
                     <label style="color:#bf360c;">🔗 Webhook (G. Sheets / Zapier)</label>
                     <input type="url" name="webhook_url" value="${biz.webhook_url || ''}" placeholder="https://hooks.zapier.com/...">
-                    <p class="hint">URL para enviar los Leads automáticamente (vía Webhookr).</p>
                  </div>
             </div>
 
-            <hr style="border:0; border-top:1px solid #EEE; margin: 3rem 0;">
-            
+            <div class="form-group" style="background:#f0fafe; padding:2rem; border-radius:24px; border:1px solid #e0eff5;">
+                <label style="color:#00593B; font-size:1.4rem;">📅 Horarios por Día (Granular)</label>
+                <p class="hint">Define exactamente a qué hora abres y cierras cada día. Si un día no trabajas, desmárcalo.</p>
+                <div style="margin-top:1.5rem; overflow-x:auto;">
+                    <table style="width:100%; border-collapse:collapse; min-width:500px;">
+                        <thead>
+                            <tr style="text-align:left; font-size:0.8rem; color:#666;">
+                                <th style="padding:10px;">DÍA</th>
+                                <th style="padding:10px;">TRABAJA</th>
+                                <th style="padding:10px;">INICIO (HH:MM)</th>
+                                <th style="padding:10px;">FIN (HH:MM)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            ${(() => {
+                                const daysNames = ['Domingo', 'Lunes', 'Martes', 'Miércoles', 'Jueves', 'Viernes', 'Sábado'];
+                                const defaultAv = {
+                                    "0": {enabled: false, start: '09:00', end: '18:00'}, "1": {enabled: true, start: '09:00', end: '18:00'}, "2": {enabled: true, start: '09:00', end: '18:00'},
+                                    "3": {enabled: true, start: '09:00', end: '18:00'}, "4": {enabled: true, start: '09:00', end: '18:00'}, "5": {enabled: true, start: '09:00', end: '18:00'}, "6": {enabled: true, start: '09:00', end: '12:00'}
+                                };
+                                const av = biz.custom_availability || defaultAv;
+                                return Object.keys(defaultAv).map(d => `
+                                    <tr style="border-bottom:1px solid #E0E0E0;">
+                                        <td style="padding:10px; font-weight:600;">${daysNames[d]}</td>
+                                        <td style="padding:10px;">
+                                            <input type="checkbox" name="av_enabled_${d}" ${av[d]?.enabled ? 'checked' : ''} style="width:20px; height:20px; cursor:pointer;">
+                                        </td>
+                                        <td style="padding:10px;">
+                                            <input type="time" name="av_start_${d}" value="${av[d]?.start || '09:00'}" style="padding:5px;">
+                                        </td>
+                                        <td style="padding:10px;">
+                                            <input type="time" name="av_end_${d}" value="${av[d]?.end || '18:00'}" style="padding:5px;">
+                                        </td>
+                                    </tr>
+                                `).join('');
+                            })()}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <div class="form-group" style="padding: 1rem; background: #FFF9C4; border-radius: 12px; font-size: 0.85rem; color: #827717;">
+                💡 <b>Dato:</b> Si quieres bloquear un día puntual (Ej: Feriado), desmarca el día arriba temporalmente antes de esa fecha. O bloquea turnos manualmente si lo prefieres después desde la agenda.
+            </div>
+
             <div class="form-group" style="background:#f0fafe; padding:2rem; border-radius:24px; border:1px solid #e0eff5;">
                 <label style="color:#00593B; font-size:1.4rem;">📅 Configuración de Turnos</label>
                 <p class="hint">Activa esta opción para que el bot ofrezca horarios y gestione tu agenda automáticamente.</p>
@@ -1101,6 +1143,16 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
         const { business_name, description, knowledge_base, address, website, welcome_message, menu_options, responses, access_password,
             booking_enabled, slot_duration, shift_start, shift_end, days, personality, webhook_url } = req.body;
         
+        // Build Granular Custom Availability
+        const custom_availability = {};
+        for (let i = 0; i <= 6; i++) {
+            custom_availability[i.toString()] = {
+                enabled: req.body[`av_enabled_${i}`] === 'on',
+                start: req.body[`av_start_${i}`] || '09:00',
+                end: req.body[`av_end_${i}`] || '18:00'
+            };
+        }
+        
         let workingDaysStr = '1,2,3,4,5,6';
         if (days) {
             workingDaysStr = Array.isArray(days) ? days.join(',') : days;
@@ -1141,6 +1193,7 @@ app.post('/dashboard/edit/:id', authMiddleware, async (req, res) => {
 
             personality,
             webhook_url,
+            custom_availability,
 
             updated_at: new Date()
         }).eq('id', id);

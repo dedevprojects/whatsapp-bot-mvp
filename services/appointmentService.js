@@ -21,9 +21,24 @@ const logger = require('../utils/logger');
 async function getAvailableSlots(business, dateStr) {
     if (!business.booking_enabled) return [];
 
-    const startStr = business.shift_start || '09:00';
-    const endStr = business.shift_end || '18:00';
+    // Get day of week (0-6)
+    const dayOfWeek = new Date(dateStr).getUTCDay().toString();
+    
+    let startStr = business.shift_start || '09:00';
+    let endStr = business.shift_end || '18:00';
     const duration = business.slot_duration || 30;
+
+    // USE CUSTOM AVAILABILITY IF RECORD EXISTS
+    if (business.custom_availability && business.custom_availability[dayOfWeek]) {
+        const config = business.custom_availability[dayOfWeek];
+        if (!config.enabled) return []; // Today is closed
+        startStr = config.start;
+        endStr = config.end;
+    } else {
+        // Fallback to legacy working_days string check
+        const workingDays = (business.working_days || '1,2,3,4,5,6').split(',');
+        if (!workingDays.includes(dayOfWeek)) return [];
+    }
 
     // 1. Fetch already booked slots for this date
     const { data: booked, error } = await supabase
